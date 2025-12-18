@@ -1,4 +1,4 @@
-import { auth } from "./firebase";
+import { getAuth } from "./firebase";
 import toast from "react-hot-toast";
 
 // API URL Configuration:
@@ -26,7 +26,7 @@ if (typeof window !== "undefined") {
 }
 
 async function getAuthHeader(): Promise<Record<string, string>> {
-  const user = auth.currentUser;
+  const user = getAuth().currentUser;
   if (!user) {
     console.warn("[Vi3W API] No authenticated user found");
     return {};

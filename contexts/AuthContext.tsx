@@ -11,7 +11,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getAuth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 
 interface AuthContextType {
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(getAuth(), (user) => {
       setUser(user);
       setLoading(false);
     });
@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signInWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(getAuth(), provider);
       router.push("/dashboard");
     } catch (error: any) {
       console.error("Error signing in with Google", error);
@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signUpWithEmail = async (email: string, password: string, name: string) => {
     try {
-      const result = await createUserWithEmailAndPassword(auth, email, password);
+      const result = await createUserWithEmailAndPassword(getAuth(), email, password);
       await updateProfile(result.user, {
         displayName: name
       });
@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(getAuth(), email, password);
       router.push("/dashboard");
     } catch (error: any) {
       console.error("Error signing in", error);
@@ -86,7 +86,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
-      await firebaseSignOut(auth);
+      await firebaseSignOut(getAuth());
       router.push("/");
     } catch (error) {
       console.error("Error signing out", error);

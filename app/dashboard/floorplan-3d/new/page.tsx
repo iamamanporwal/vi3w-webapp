@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { auth } from "@/lib/firebase";
+import { getAuth } from "@/lib/firebase";
 import { useGeneration } from "@/contexts/GenerationContext";
 import { Generation } from "@/lib/api";
 import toast from "react-hot-toast";
@@ -23,7 +23,7 @@ function Floorplan3DEditorContent() {
 
   // Fetch token
   useEffect(() => {
-    const unsubscribe = auth.onIdTokenChanged(async (user) => {
+    const unsubscribe = getAuth().onIdTokenChanged(async (user) => {
       if (user) {
         const t = await user.getIdToken();
         setToken(t);

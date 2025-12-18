@@ -15,7 +15,7 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { ProjectThreadSidebar } from "./ProjectThreadSidebar";
 import { fetchProjectGenerations, Generation } from "@/lib/api";
@@ -81,7 +81,7 @@ function DashboardSidebarContent({ isCollapsed = false, setIsCollapsed }: Dashbo
 
       try {
         setCreditsLoading(true);
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userDoc = await getDoc(doc(getDb(), 'users', user.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
           setCredits(userData?.credits || 0);

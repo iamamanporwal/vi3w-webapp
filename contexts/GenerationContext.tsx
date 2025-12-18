@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import { fetchGeneration, Generation } from "@/lib/api";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import {
   collection,
   query,
@@ -65,7 +65,7 @@ export const GenerationProvider = ({ children }: { children: React.ReactNode }) 
     // Create query for active generations (pending or generating) for this user
     // Note: We filter by user_id and status, then sort by created_at in JavaScript
     // to avoid requiring a Firestore composite index
-    const generationsRef = collection(db, "generations");
+    const generationsRef = collection(getDb(), "generations");
     const q = query(
       generationsRef,
       where("user_id", "==", user.uid),

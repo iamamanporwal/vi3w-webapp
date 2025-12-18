@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Menu, X, CreditCard, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
 export function Navbar() {
@@ -37,7 +37,7 @@ export function Navbar() {
 
       try {
         setCreditsLoading(true);
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userDoc = await getDoc(doc(getDb(), 'users', user.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
           setCredits(userData?.credits || 0);

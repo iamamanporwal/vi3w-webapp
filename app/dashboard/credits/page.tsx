@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { fetchTransactions, createPaymentOrder, verifyPayment, Transaction } from "@/lib/api";
 import { loadRazorpayScript, openRazorpayCheckout } from "@/lib/razorpay";
@@ -31,7 +31,7 @@ export default function CreditsPage() {
 
       try {
         setCreditsLoading(true);
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userDoc = await getDoc(doc(getDb(), 'users', user.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
           setCredits(userData?.credits || 0);
@@ -78,7 +78,7 @@ export default function CreditsPage() {
     if (!user) return;
     
     try {
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userDoc = await getDoc(doc(getDb(), 'users', user.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
         setCredits(userData?.credits || 0);
