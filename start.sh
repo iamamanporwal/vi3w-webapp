@@ -25,3 +25,7 @@ echo "🚀 Starting frontend development server on http://localhost:3000"
 echo ""
 npm run dev
 
+
+
+
+

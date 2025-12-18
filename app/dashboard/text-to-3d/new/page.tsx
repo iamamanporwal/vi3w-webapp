@@ -17,6 +17,7 @@ export default function TextTo3DEditorPage() {
   const [generation, setGeneration] = useState<Generation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const prevStatusRef = useRef<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Fetch token
   useEffect(() => {
@@ -111,6 +112,13 @@ export default function TextTo3DEditorPage() {
     };
   }, [generationId, loading, getGeneration]);
 
+  // Track generation status for loading overlay
+  useEffect(() => {
+    if (generation) {
+      setIsGenerating(generation.status === "generating" || generation.status === "pending");
+    }
+  }, [generation]);
+
   const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   return (
@@ -192,23 +200,58 @@ export default function TextTo3DEditorPage() {
         </div>
       )}
 
-      {/* Iframe Container */}
-      <div className="flex-1 bg-black relative">
+      {/* Iframe Container with Loading Overlay */}
+      <div className="flex-1 bg-black relative" style={{ minHeight: '600px' }}>
         {loading ? (
           <div className="flex items-center justify-center h-full text-white/50">
             Loading editor...
           </div>
-        ) : token ? (
-          <iframe 
-            src={`${BACKEND_URL}/gradio/text-to-3d?token=${token}&__theme=dark`}
-            className="w-full h-full border-none"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            title="Text to 3D Generator"
-          />
         ) : (
-          <div className="flex items-center justify-center h-full text-white/50">
-            Please log in to use the editor
-          </div>
+          <>
+            <iframe 
+              src={`${BACKEND_URL}/gradio/text-to-3d/?token=${token || ''}&__theme=dark`}
+              className="w-full h-full border-none absolute inset-0"
+              style={{ minHeight: '600px' }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              title="Text to 3D Generator"
+            />
+            
+            {/* Loading Animation Overlay */}
+            {isGenerating && (
+              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-10 backdrop-blur-sm">
+                <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
+                  {/* Animated 3D cube loader */}
+                  <div className="cube-loader">
+                    <div className="cube-face front"></div>
+                    <div className="cube-face back"></div>
+                    <div className="cube-face right"></div>
+                    <div className="cube-face left"></div>
+                    <div className="cube-face top"></div>
+                    <div className="cube-face bottom"></div>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <h3 className="text-xl font-semibold text-white mb-2">
+                    Creating Your 3D Model
+                  </h3>
+                  <p className="text-white/60 text-sm mb-4 max-w-md px-4">
+                    {generation?.input_data?.prompt || "Processing your request..."}
+                  </p>
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-32 bg-white/10 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-violet-500 to-purple-600 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${generation?.progress_percentage || 0}%` }}
+                      />
+                    </div>
+                    <span className="text-white/80 text-sm font-medium">
+                      {generation?.progress_percentage || 0}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

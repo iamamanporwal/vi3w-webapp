@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Project, Generation } from "@/lib/api";
 import { useGeneration } from "@/contexts/GenerationContext";
 import { useRouter } from "next/navigation";
 import { SkeletonProjectCard } from "./SkeletonLoader";
 import { ErrorDisplay } from "./ErrorDisplay";
+import { getRandomEmoji } from "@/lib/emojiUtils";
 
 interface Props {
   projects: Project[];
@@ -17,6 +19,7 @@ interface Props {
 export default function ProjectHistoryGrid({ projects, loading, workflowType, error, onRetry }: Props) {
   const { activeGenerations } = useGeneration();
   const router = useRouter();
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   // Filter active generations by workflow type if specified
   const filteredGenerations = workflowType
@@ -29,6 +32,10 @@ export default function ProjectHistoryGrid({ projects, loading, workflowType, er
     ...filteredGenerations.map((gen) => ({ type: "generation" as const, data: gen })),
     ...projects.map((proj) => ({ type: "project" as const, data: proj })),
   ];
+
+  const handleImageError = (id: string) => {
+    setFailedImages((prev) => new Set(prev).add(id));
+  };
 
   if (loading) {
     return (
@@ -95,9 +102,20 @@ export default function ProjectHistoryGrid({ projects, loading, workflowType, er
               onClick={() => handleGenerationClick(generation)}
               className="bg-white/5 border border-white/10 rounded-lg overflow-hidden hover:bg-white/10 transition group cursor-pointer"
             >
-              <div className="relative h-48 w-full bg-black/20">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={thumbnail} alt={title} className="object-cover w-full h-full" />
+              <div className="relative h-48 w-full bg-black/20 flex items-center justify-center">
+                {failedImages.has(generation.id) || thumbnail === "/file.svg" ? (
+                  <div className="text-6xl">{getRandomEmoji(generation.workflow_type, generation.id)}</div>
+                ) : (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={thumbnail} 
+                      alt={title} 
+                      className="object-cover w-full h-full"
+                      onError={() => handleImageError(generation.id)}
+                    />
+                  </>
+                )}
                 {/* Status overlay */}
                 <div className="absolute top-2 right-2">
                   {generation.status === "generating" && (
@@ -171,18 +189,18 @@ export default function ProjectHistoryGrid({ projects, loading, workflowType, er
         // Regular project card
         const project = item.data as Project;
         const title = project.workflow_type === "text-to-3d" 
-          ? project.input_data.prompt 
-          : (project.input_data.prompt || "Floorplan Project");
+          ? (project.input_data?.prompt || "Untitled Project")
+          : (project.input_data?.prompt || project.title || "Floorplan Project");
         
         let thumbnail = "/file.svg"; 
         let modelLink = "";
 
         if (project.workflow_type === "text-to-3d") {
-             thumbnail = project.output_data.image_url || "/file.svg";
-             modelLink = project.output_data.model_url;
+             thumbnail = project.output_data?.image_url || "/file.svg";
+             modelLink = project.output_data?.model_url || "";
         } else {
-             thumbnail = project.output_data.isometric_path || project.output_data.floorplan_path || "/file.svg";
-             modelLink = project.output_data.model_path;
+             thumbnail = project.output_data?.isometric_path || project.output_data?.floorplan_path || "/file.svg";
+             modelLink = project.output_data?.model_path || "";
         }
 
         return (
@@ -191,9 +209,20 @@ export default function ProjectHistoryGrid({ projects, loading, workflowType, er
             onClick={() => handleProjectClick(project)}
             className="bg-white/5 border border-white/10 rounded-lg overflow-hidden hover:bg-white/10 transition group cursor-pointer"
           >
-            <div className="relative h-48 w-full bg-black/20">
-               {/* eslint-disable-next-line @next/next/no-img-element */}
-               <img src={thumbnail} alt={title} className="object-cover w-full h-full" />
+            <div className="relative h-48 w-full bg-black/20 flex items-center justify-center">
+               {failedImages.has(project.id) || thumbnail === "/file.svg" ? (
+                 <div className="text-6xl">{getRandomEmoji(project.workflow_type, project.id)}</div>
+               ) : (
+                 <>
+                   {/* eslint-disable-next-line @next/next/no-img-element */}
+                   <img 
+                     src={thumbnail} 
+                     alt={title} 
+                     className="object-cover w-full h-full"
+                     onError={() => handleImageError(project.id)}
+                   />
+                 </>
+               )}
                {/* Generation count badge */}
                {project.generation_count && project.generation_count > 1 && (
                  <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded flex items-center gap-1">

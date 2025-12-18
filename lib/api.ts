@@ -1,13 +1,47 @@
 import { auth } from "./firebase";
 import toast from "react-hot-toast";
 
+// API URL Configuration:
+// - If NEXT_PUBLIC_API_URL is set, use it (for Hugging Face or custom backend)
+// - Otherwise, default to localhost:8000 (for local development)
+// - NEVER use localhost:3000 (that's the frontend itself!)
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// Validate API URL (prevent common mistakes)
+if (typeof window !== "undefined") {
+  if (API_BASE_URL.includes("localhost:3000") || API_BASE_URL.includes("127.0.0.1:3000")) {
+    console.error(
+      "[Vi3W API] ❌ ERROR: API URL points to frontend (localhost:3000). " +
+      "This will cause crashes! Use backend URL instead:\n" +
+      "  - Local backend: http://localhost:8000\n" +
+      "  - Hugging Face: https://amanporwal-vi3w-backend.hf.space"
+    );
+  }
+  
+  // Debug: Log API URL in development
+  if (process.env.NODE_ENV === "development") {
+    console.log("[Vi3W API] Using API URL:", API_BASE_URL);
+    console.log("[Vi3W API] Source:", process.env.NEXT_PUBLIC_API_URL ? "NEXT_PUBLIC_API_URL env var" : "default (localhost:8000)");
+  }
+}
 
 async function getAuthHeader(): Promise<Record<string, string>> {
   const user = auth.currentUser;
-  if (!user) return {};
-  const token = await user.getIdToken();
-  return { Authorization: `Bearer ${token}` };
+  if (!user) {
+    console.warn("[Vi3W API] No authenticated user found");
+    return {};
+  }
+  try {
+    const token = await user.getIdToken();
+    if (!token) {
+      console.warn("[Vi3W API] Failed to get ID token");
+      return {};
+    }
+    return { Authorization: `Bearer ${token}` };
+  } catch (error) {
+    console.error("[Vi3W API] Error getting ID token:", error);
+    return {};
+  }
 }
 
 export interface Project {
@@ -42,14 +76,24 @@ export async function fetchProjects(workflowType?: string): Promise<Project[]> {
   try {
     const headers = await getAuthHeader();
     const query = workflowType ? `?workflow_type=${workflowType}` : "";
-    const res = await fetch(`${API_BASE_URL}/api/projects${query}`, { headers });
+    const url = `${API_BASE_URL}/api/projects${query}`;
+    
+    if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+      console.log("[Vi3W API] Fetching projects from:", url);
+      console.log("[Vi3W API] Has auth header:", !!headers.Authorization);
+    }
+    
+    const res = await fetch(url, { headers });
+    
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: "Failed to fetch projects" }));
+      console.error("[Vi3W API] Projects fetch failed:", error, "Status:", res.status);
       toast.error(error.detail || "Failed to fetch projects");
       throw new Error(error.detail || "Failed to fetch projects");
     }
     return res.json();
   } catch (error: any) {
+    console.error("[Vi3W API] Error in fetchProjects:", error);
     if (error.message && !error.message.includes("Failed to fetch projects")) {
       toast.error(error.message || "An error occurred");
     }

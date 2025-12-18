@@ -4,16 +4,20 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Plus, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchProjects, Project } from "@/lib/api";
 import { SkeletonCard } from "@/components/SkeletonLoader";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
+import { getRandomEmoji } from "@/lib/emojiUtils";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -80,11 +84,19 @@ export default function DashboardPage() {
 
   const getProjectImage = (project: Project): string => {
     // Try to get image from output_data or input_data
-    if (project.output_data?.image_url) return project.output_data.image_url;
-    if (project.output_data?.model_url) return project.output_data.model_url;
-    if (project.input_data?.image_url) return project.input_data.image_url;
-    // Default placeholder
-    return "https://images.unsplash.com/photo-1614728263952-84ea256f9679?q=80&w=300&auto=format&fit=crop";
+    if (project.workflow_type === "text-to-3d") {
+      return project.output_data?.image_url || "/file.svg";
+    } else {
+      return project.output_data?.isometric_path || project.output_data?.floorplan_path || "/file.svg";
+    }
+  };
+
+  const handleImageError = (projectId: string) => {
+    setFailedImages((prev) => new Set(prev).add(projectId));
+  };
+
+  const handleProjectClick = (project: Project) => {
+    router.push(`/dashboard/projects/${project.id}`);
   };
 
   const getProjectTitle = (project: Project): string => {
@@ -185,30 +197,44 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {projects.map((project, index) => (
-            <motion.div
-              key={project.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="group rounded-xl bg-white/5 border border-white/10 overflow-hidden hover:bg-white/10 transition-all hover:scale-[1.02] cursor-pointer"
-            >
-              <div className="aspect-square relative overflow-hidden bg-black/50">
-                <img 
-                  src={getProjectImage(project)} 
-                  alt={getProjectTitle(project)} 
-                  className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" 
-                />
-                <div className="absolute top-3 left-3 px-2 py-1 rounded bg-black/60 backdrop-blur-md text-[10px] font-medium border border-white/10">
-                  {getProjectTypeLabel(project.workflow_type)}
+          {projects.map((project, index) => {
+            const thumbnail = getProjectImage(project);
+            const showEmoji = failedImages.has(project.id) || thumbnail === "/file.svg";
+            
+            return (
+              <motion.div
+                key={project.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                onClick={() => handleProjectClick(project)}
+                className="group rounded-xl bg-white/5 border border-white/10 overflow-hidden hover:bg-white/10 transition-all hover:scale-[1.02] cursor-pointer"
+              >
+                <div className="aspect-square relative overflow-hidden bg-black/50 flex items-center justify-center">
+                  {showEmoji ? (
+                    <div className="text-6xl">{getRandomEmoji(project.workflow_type, project.id)}</div>
+                  ) : (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={thumbnail} 
+                        alt={getProjectTitle(project)} 
+                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                        onError={() => handleImageError(project.id)}
+                      />
+                    </>
+                  )}
+                  <div className="absolute top-3 left-3 px-2 py-1 rounded bg-black/60 backdrop-blur-md text-[10px] font-medium border border-white/10">
+                    {getProjectTypeLabel(project.workflow_type)}
+                  </div>
                 </div>
-              </div>
-              <div className="p-4">
-                <h3 className="font-semibold truncate text-white/90">{getProjectTitle(project)}</h3>
-                <p className="text-xs text-white/40 mt-1">{formatDate(project.created_at)}</p>
-              </div>
-            </motion.div>
-          ))}
+                <div className="p-4">
+                  <h3 className="font-semibold truncate text-white/90">{getProjectTitle(project)}</h3>
+                  <p className="text-xs text-white/40 mt-1">{formatDate(project.created_at)}</p>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       )}
     </div>
