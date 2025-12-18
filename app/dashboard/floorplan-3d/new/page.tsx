@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+export const dynamic = 'force-dynamic';
+
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { useGeneration } from "@/contexts/GenerationContext";
 import { Generation } from "@/lib/api";
 import toast from "react-hot-toast";
 
-export default function Floorplan3DEditorPage() {
+function Floorplan3DEditorContent() {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
@@ -255,5 +257,17 @@ export default function Floorplan3DEditorPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Floorplan3DEditorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black text-white p-8 flex items-center justify-center">
+        <div className="text-white/60">Loading...</div>
+      </div>
+    }>
+      <Floorplan3DEditorContent />
+    </Suspense>
   );
 }

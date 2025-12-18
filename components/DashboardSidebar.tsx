@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useParams, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -52,7 +52,7 @@ interface DashboardSidebarProps {
   setIsCollapsed?: (collapsed: boolean) => void;
 }
 
-export function DashboardSidebar({ isCollapsed = false, setIsCollapsed }: DashboardSidebarProps) {
+function DashboardSidebarContent({ isCollapsed = false, setIsCollapsed }: DashboardSidebarProps) {
   const pathname = usePathname();
   const params = useParams();
   const router = useRouter();
@@ -248,5 +248,24 @@ export function DashboardSidebar({ isCollapsed = false, setIsCollapsed }: Dashbo
         )}
       </div>
     </aside>
+  );
+}
+
+export function DashboardSidebar({ isCollapsed = false, setIsCollapsed }: DashboardSidebarProps) {
+  return (
+    <Suspense fallback={
+      <aside 
+        className={cn(
+          "fixed left-0 top-[80px] bottom-0 border-r border-white/10 bg-black/50 backdrop-blur-xl hidden md:flex flex-col transition-all duration-300",
+          isCollapsed ? "w-20" : "w-64"
+        )}
+      >
+        <div className="p-4 flex flex-col gap-2">
+          <div className="text-white/60 text-sm">Loading...</div>
+        </div>
+      </aside>
+    }>
+      <DashboardSidebarContent isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+    </Suspense>
   );
 }

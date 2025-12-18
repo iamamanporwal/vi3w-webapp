@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+export const dynamic = 'force-dynamic';
+
+import React, { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Script from "next/script";
 import { fetchProject, fetchProjectGenerations, Project, Generation } from "@/lib/api";
@@ -9,7 +11,7 @@ import Link from "next/link";
 import { SkeletonText } from "@/components/SkeletonLoader";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
 
-export default function ProjectDetailPage() {
+function ProjectDetailContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -219,13 +221,13 @@ export default function ProjectDetailPage() {
                 </div>
               ) : modelUrl ? (
                 <div className="relative w-full h-96 bg-black/20 rounded-lg overflow-hidden">
-                  <model-viewer
-                    src={modelUrl}
-                    alt="3D Model"
-                    camera-controls
-                    auto-rotate
-                    style={{ width: "100%", height: "100%" }}
-                  />
+                  {React.createElement('model-viewer', {
+                    src: modelUrl,
+                    alt: "3D Model",
+                    'camera-controls': true,
+                    'auto-rotate': true,
+                    style: { width: "100%", height: "100%" }
+                  })}
                   <div className="absolute bottom-4 right-4">
                     <a
                       href={modelUrl}
@@ -267,6 +269,21 @@ export default function ProjectDetailPage() {
       </div>
     </div>
     </>
+  );
+}
+
+export default function ProjectDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black text-white p-8">
+        <div className="max-w-7xl mx-auto">
+          <SkeletonText lines={2} className="mb-4" />
+          <SkeletonText lines={1} className="w-1/3" />
+        </div>
+      </div>
+    }>
+      <ProjectDetailContent />
+    </Suspense>
   );
 }
 
