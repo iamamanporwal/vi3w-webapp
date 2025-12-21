@@ -262,23 +262,46 @@ export class TextTo3DWorkflow extends BaseWorkflow {
       }
     );
 
-    // Poll for status with timeout
+    // Poll for status with adaptive timeout and intervals
+    // Strategy: 5s for first 30s, 10s for 30s-6min, 20s for 6-10min, then timeout
     const startTime = Date.now();
-    const maxAttempts = 300; // 25 minutes max (1500 seconds / 5 seconds per attempt)
-    const pollInterval = 5000; // 5 seconds
+    const TIMEOUT_10_MINUTES = 600000; // 10 minutes hard timeout
     let lastStatus: string | undefined;
+    let attempt = 0;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Check overall timeout
-      if (Date.now() - startTime > MESHY_POLL_TIMEOUT) {
+    // Helper function to determine polling interval based on elapsed time
+    const getPollingInterval = (elapsedMs: number): number => {
+      if (elapsedMs < 30000) return 5000;        // 0-30s: Poll every 5 seconds
+      if (elapsedMs < 360000) return 10000;      // 30s-6min: Poll every 10 seconds
+      if (elapsedMs < 600000) return 20000;      // 6-10min: Poll every 20 seconds
+      return -1; // Stop polling after 10 minutes
+    };
+
+    while (true) {
+      const elapsedTime = Date.now() - startTime;
+
+      // Check 10-minute hard timeout
+      if (elapsedTime >= TIMEOUT_10_MINUTES) {
+        // Mark as timeout with retry option
+        const timeoutMessage = `Generation timed out after 10 minutes. Task ${taskId} may still be processing. You can try regenerating or contact support with this task ID.`;
+        console.error(`[TextTo3D] ${timeoutMessage}`);
+
         throw new TimeoutError(
-          `Generation timeout: Maximum time (${MESHY_POLL_TIMEOUT / 1000 / 60} minutes) exceeded. Task may still be processing.`
+          `Generation timeout: Maximum time (10 minutes) exceeded. Task ID: ${taskId}. You may retry or contact support.`
         );
       }
 
+      // Wait before polling (except first attempt)
       if (attempt > 0) {
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        const interval = getPollingInterval(elapsedTime);
+        if (interval === -1) {
+          // Should have been caught by timeout check above, but safety check
+          throw new TimeoutError('Polling stopped after 10 minutes');
+        }
+        await new Promise((resolve) => setTimeout(resolve, interval));
       }
+
+      attempt++;
 
       try {
         const statusResponse = await retryWithBackoff(
@@ -302,9 +325,11 @@ export class TextTo3DWorkflow extends BaseWorkflow {
         const progress = statusResponse.data?.progress || 0;
         lastStatus = status;
 
-        // Log status updates (only every 10th attempt to avoid spam)
-        if (attempt % 10 === 0) {
-          console.log(`[TextTo3D] Polling status: ${status}, progress: ${progress}%`);
+        // Log status updates periodically based on current interval
+        const currentInterval = getPollingInterval(elapsedTime);
+        const logFrequency = currentInterval === 5000 ? 6 : (currentInterval === 10000 ? 6 : 3); // Log every 30s, 60s, or 60s
+        if (attempt % logFrequency === 0) {
+          console.log(`[TextTo3D] [${Math.floor(elapsedTime / 1000)}s] Status: ${status}, Progress: ${progress}%`);
         }
 
         // Update generation progress based on Meshy progress (0-100)
@@ -328,7 +353,7 @@ export class TextTo3DWorkflow extends BaseWorkflow {
             throw new Error('GLB URL not found in Meshy response. Check model_urls.glb in the response.');
           }
 
-          console.log('[TextTo3D] Generation succeeded!');
+          console.log(`[TextTo3D] Generation succeeded after ${Math.floor(elapsedTime / 1000)}s!`);
           console.log('[TextTo3D] GLB URL:', modelUrls.glb);
           console.log('[TextTo3D] Available formats:', Object.keys(modelUrls).join(', '));
 
@@ -350,45 +375,46 @@ export class TextTo3DWorkflow extends BaseWorkflow {
           throw new Error(`Meshy Task ${status.toLowerCase()}: ${errorMsg}`);
         }
 
-        // Status is still processing, continue polling silently
+        // Status is PENDING or IN_PROGRESS, continue polling silently
       } catch (error: any) {
-        // 404 during initial polling is NORMAL - Meshy task is still initializing
-        // Only treat 404 as fatal error after sustained period (e.g., 2+ minutes)
+        // Handle 404 responses: Normal during first 30s (task initializing), error after
         if (error.response?.status === 404) {
           const elapsedTime = Date.now() - startTime;
-          const twoMinutes = 120000;
 
-          if (elapsedTime > twoMinutes) {
-            // After 2 minutes, 404 likely means task really doesn't exist
-            throw new Error(`Meshy task ${taskId} not found after ${Math.floor(elapsedTime / 1000)}s`);
-          } else {
-            // Within first 2 minutes, treat 404 as "still initializing"
-            if (attempt % 10 === 0) {
-              console.log(`[TextTo3D] Task still initializing (404 is normal during startup)...`);
+          if (elapsedTime < 30000) {
+            // Within first 30 seconds: Task is still initializing (NORMAL, NOT AN ERROR)
+            if (attempt % 3 === 0) {
+              console.log(`[TextTo3D] [${Math.floor(elapsedTime / 1000)}s] Task initializing (404 is expected)...`);
             }
             continue; // Keep polling
+          } else {
+            // After 30 seconds: Task should be registered by now, 404 is a real error
+            throw new Error(`Meshy task ${taskId} not found after ${Math.floor(elapsedTime / 1000)}s. Task may have been rejected or deleted.`);
           }
         }
 
         // Authentication errors are always fatal
         if (error.response?.status === 401 || error.response?.status === 403) {
-          throw new Error('Meshy API authentication failed');
+          throw new Error('Meshy API authentication failed. Please check your API key.');
         }
 
-        // Network error during polling - retry if not last attempt
-        // Don't log errors during polling to avoid console spam
-        if (attempt < maxAttempts - 1) {
+        // Other network errors during polling - log and continue unless critical
+        if (error.response?.status >= 500) {
+          console.warn(`[TextTo3D] Meshy API server error (${error.response.status}), will retry...`);
           continue;
         }
-        // Only throw error on final attempt
+
+        // Re-throw errors that aren't transient
+        if (!error.response || error.code === 'ECONNABORTED') {
+          console.warn(`[TextTo3D] Network error during polling, will retry:`, error.message);
+          continue;
+        }
+
+        // Unknown error - throw after logging
+        console.error('[TextTo3D] Unexpected error during polling:', error);
         throw error;
       }
     }
-
-    // Timeout reached
-    throw new TimeoutError(
-      `Generation timeout: Maximum attempts (${maxAttempts}) reached. Last status: ${lastStatus || 'unknown'}. Task may still be processing.`
-    );
   }
 
   /**

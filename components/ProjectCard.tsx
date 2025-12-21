@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { Download, Loader2 } from "lucide-react";
 import { Project } from "@/lib/client-api";
 import { getRandomEmoji } from "@/lib/emojiUtils";
+import { downloadModel } from "@/lib/client/downloadUtils";
 
 interface ProjectCardProps {
     project: Project;
@@ -14,6 +16,7 @@ interface ProjectCardProps {
 export function ProjectCard({ project, onClick, index = 0 }: ProjectCardProps) {
     const [imageLoaded, setImageLoaded] = useState(false);
     const [imageError, setImageError] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const formatDate = (timestamp: any): string => {
         if (!timestamp) return "Unknown";
@@ -63,8 +66,45 @@ export function ProjectCard({ project, onClick, index = 0 }: ProjectCardProps) {
         return `Project ${project.id}`;
     };
 
+    const handleDownload = async (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent card click navigation
+
+        if (!project.output_data?.model_url && !project.output_data?.model_urls?.glb) {
+            alert("Model not available for download");
+            return;
+        }
+
+        setIsDownloading(true);
+
+        try {
+            // Build model URLs object
+            const modelUrls = {
+                glb: project.output_data?.model_urls?.glb || project.output_data?.model_url,
+                fbx: project.output_data?.model_urls?.fbx,
+                obj: project.output_data?.model_urls?.obj,
+                usdz: project.output_data?.model_urls?.usdz,
+            };
+
+            // Generate filename from project title or ID
+            const baseName = project.input_data?.prompt
+                ? project.input_data.prompt.substring(0, 30).replace(/[^a-zA-Z0-9]/g, '_')
+                : `project_${project.id}`;
+
+            // Download GLB format (most compatible)
+            await downloadModel(modelUrls as any, 'glb', baseName);
+        } catch (error) {
+            console.error("Download failed:", error);
+            alert("Failed to download model. Please try again.");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     const thumbnail = getProjectImage(project);
     const showEmoji = imageError || thumbnail === "/file.svg";
+
+    // Check if model is available for download
+    const hasModel = project.output_data?.model_url || project.output_data?.model_urls?.glb;
 
     return (
         <motion.div
@@ -97,6 +137,22 @@ export function ProjectCard({ project, onClick, index = 0 }: ProjectCardProps) {
                 <div className="absolute top-3 left-3 px-2 py-1 rounded bg-black/60 backdrop-blur-md text-[10px] font-medium border border-white/10">
                     {getProjectTypeLabel(project.workflow_type)}
                 </div>
+
+                {/* Download Button */}
+                {hasModel && (
+                    <button
+                        onClick={handleDownload}
+                        disabled={isDownloading}
+                        className="absolute bottom-3 right-3 p-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                        title="Download GLB"
+                    >
+                        {isDownloading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Download className="w-4 h-4" />
+                        )}
+                    </button>
+                )}
             </div>
             <div className="p-4">
                 <h3 className="font-semibold truncate text-white/90">{getProjectTitle(project)}</h3>
