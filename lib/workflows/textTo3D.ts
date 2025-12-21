@@ -497,6 +497,13 @@ export class TextTo3DWorkflow extends BaseWorkflow {
         result.image_url = generatedImageUrl;
       }
 
+      // Log the exact data being saved for debugging
+      console.log('[TextTo3D] Saving output_data to Firestore:');
+      console.log('[TextTo3D]   - model_url (GLB):', result.model_url);
+      console.log('[TextTo3D]   - model_urls:', JSON.stringify(result.model_urls, null, 2));
+      console.log('[TextTo3D]   - thumbnail_url:', result.thumbnail_url);
+      console.log('[TextTo3D]   - image_url:', result.image_url || 'N/A');
+
       // Step 4: Update generation status to "completed"
       // We do this BEFORE credit deduction to ensure the user sees the result.
       await this.updateGenerationStatus(generationId, 'completed', {

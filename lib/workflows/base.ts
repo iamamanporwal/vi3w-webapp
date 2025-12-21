@@ -108,8 +108,16 @@ export abstract class BaseWorkflow {
         progress_percentage: Math.max(0, Math.min(100, progress)),
       };
 
+      // CRITICAL FIX: Use nested field updates (dot notation) for output_data
+      // This ensures existing fields like meshy_task_id are preserved
       if (options?.outputData !== undefined) {
-        updateData.output_data = options.outputData;
+        // Instead of replacing the entire output_data object, update each field individually
+        const outputDataKeys = Object.keys(options.outputData);
+        console.log(`[BaseWorkflow] Updating output_data with fields: ${outputDataKeys.join(', ')}`);
+
+        for (const [key, value] of Object.entries(options.outputData)) {
+          updateData[`output_data.${key}`] = value;
+        }
       }
 
       if (options?.errorMessage !== undefined) {
