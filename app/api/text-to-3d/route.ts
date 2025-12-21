@@ -53,6 +53,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('[Text-to-3D API] Starting workflow with:', {
+      hasPrompt: !!prompt,
+      hasImageUrl: !!image_url,
+      promptLength: prompt?.length || 0
+    });
+
     // Execute workflow
     const workflow = new TextTo3DWorkflow();
     const { generationId, projectId } = await workflow.execute(userId, {
@@ -60,6 +66,8 @@ export async function POST(request: NextRequest) {
       imagePath: image_url,
       has_image: !!image_url
     });
+
+    console.log('[Text-to-3D API] Workflow completed:', { generationId, projectId });
 
     return NextResponse.json({
       status: 'success',

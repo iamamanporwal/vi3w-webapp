@@ -9,9 +9,9 @@ import { validateWorkflowInput, ValidationError } from '@/lib/server/validation'
 import type { WorkflowType } from '@/types/firestore';
 
 const MESHY_API_BASE = 'https://api.meshy.ai/openapi/v1';
-const REPLICATE_TIMEOUT = 300000; // 5 minutes
-const MESHY_SUBMIT_TIMEOUT = 120000; // 2 minutes
-const MESHY_POLL_TIMEOUT = 420000; // 7 minutes total
+const REPLICATE_TIMEOUT = 480000; // 8 minutes (increased from 5 for reliability)
+const MESHY_SUBMIT_TIMEOUT = 180000; // 3 minutes (increased from 2 for reliability)
+const MESHY_POLL_TIMEOUT = 900000; // 15 minutes total (increased from 7 for complex models)
 const IMAGE_DOWNLOAD_TIMEOUT = 60000; // 1 minute
 
 /**
@@ -260,7 +260,7 @@ export class TextTo3DWorkflow extends BaseWorkflow {
 
     // Poll for status with timeout
     const startTime = Date.now();
-    const maxAttempts = 180; // 15 minutes max (900 seconds / 5 seconds)
+    const maxAttempts = 180; // 15 minutes max (900 seconds / 5 seconds per attempt)
     const pollInterval = 5000; // 5 seconds
     let lastStatus: string | undefined;
 

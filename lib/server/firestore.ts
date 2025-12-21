@@ -640,16 +640,15 @@ export async function getTransactionsByUserId(
   try {
     validateUserId(userId);
 
-    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-      throw new ValidationError('Invalid limit: must be an integer between 1 and 100');
-    }
+    // Ensure limit is a valid number with proper default
+    const validLimit = Number.isInteger(limit) && limit >= 1 && limit <= 100 ? limit : 50;
 
     const db = getFirestore();
     const snapshot = await db
       .collection('transactions')
       .where('user_id', '==', userId)
       .orderBy('created_at', 'desc')
-      .limit(limit)
+      .limit(validLimit)
       .get();
 
     if (snapshot.empty) {
