@@ -24,6 +24,7 @@ function ProjectDetailContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentGeneration, setCurrentGeneration] = useState<Generation | null>(null);
+  const [retryingGeneration, setRetryingGeneration] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -48,18 +49,40 @@ function ProjectDetailContent() {
         if (selectedGenerationId) {
           selectedGen = normalizedGenerations.find((g: Generation) => g.id === selectedGenerationId);
 
-          // If not found in the list (eventual consistency), try fetching it directly
+          // If not found in the list (eventual consistency), retry fetching it directly
+          // This handles the race condition where UI loads before Firestore replication completes
           if (!selectedGen) {
-            try {
-              console.log("Generation not found in list, fetching directly:", selectedGenerationId);
-              selectedGen = await fetchGeneration(selectedGenerationId);
-              // Add to the list if found
-              if (selectedGen) {
-                setGenerations(prev => [selectedGen!, ...prev]);
+            setRetryingGeneration(true);
+            const retryDelays = [500, 1000, 2000, 3000]; // Progressive delays: 500ms, 1s, 2s, 3s
+            let lastError: Error | null = null;
+
+            for (let i = 0; i < retryDelays.length; i++) {
+              try {
+                if (i > 0) {
+                  console.log(`Retrying fetch (attempt ${i + 1}/${retryDelays.length}) after ${retryDelays[i - 1]}ms...`);
+                  await new Promise(resolve => setTimeout(resolve, retryDelays[i - 1]));
+                } else {
+                  console.log("Generation not found in list, fetching directly:", selectedGenerationId);
+                }
+
+                selectedGen = await fetchGeneration(selectedGenerationId);
+
+                // Add to the list if found
+                if (selectedGen) {
+                  setGenerations(prev => [selectedGen!, ...prev]);
+                  console.log("Generation found after", i + 1, "attempt(s)");
+                  setRetryingGeneration(false);
+                  break;
+                }
+              } catch (genError) {
+                lastError = genError instanceof Error ? genError : new Error(String(genError));
+                // Continue to next retry unless it's the last attempt
+                if (i === retryDelays.length - 1) {
+                  console.warn("Failed to fetch generation after all retries:", lastError);
+                }
               }
-            } catch (genError) {
-              console.warn("Failed to fetch specific generation:", genError);
             }
+            setRetryingGeneration(false);
           }
         }
 
@@ -96,7 +119,7 @@ function ProjectDetailContent() {
     }
   };
 
-  if (loading) {
+  if (loading || retryingGeneration) {
     return (
       <div className="min-h-screen bg-black text-white p-8">
         <div className="max-w-7xl mx-auto">
@@ -104,6 +127,14 @@ function ProjectDetailContent() {
             <SkeletonText lines={2} className="mb-4" />
             <SkeletonText lines={1} className="w-1/3" />
           </div>
+          {retryingGeneration && (
+            <div className="mb-4 p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg text-purple-300">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Loading generation data...</span>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white/5 border border-white/10 rounded-lg p-6">
               <div className="h-96 bg-white/10 rounded-lg animate-pulse" />
