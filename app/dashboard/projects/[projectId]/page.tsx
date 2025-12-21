@@ -39,34 +39,14 @@ function ProjectDetailContent() {
         ]);
 
         setProject(projectData);
-
-        // DEFENSIVE: Ensure generationsData is always an array before using .find()
-        const safeGenerationsData = Array.isArray(generationsData) ? generationsData : [];
-
-        if (!Array.isArray(generationsData)) {
-          console.error('[ProjectDetail] generationsData is not an array:', {
-            type: typeof generationsData,
-            value: generationsData
-          });
-        }
-
-        console.log('[ProjectDetail] Loaded generations:', {
-          count: safeGenerationsData.length,
-          selectedGenerationId,
-          generations: safeGenerationsData.map((g: Generation) => ({
-            id: g.id,
-            status: g.status,
-            hasOutputData: !!g.output_data,
-            hasModelUrl: !!(g.output_data?.model_url || g.output_data?.model_urls?.glb)
-          }))
-        });
-
-        setGenerations(safeGenerationsData);
+        // Normalize generationsData to always be an array
+        const normalizedGenerations = Array.isArray(generationsData) ? generationsData : [];
+        setGenerations(normalizedGenerations);
 
         // Set current generation based on URL param, or default to latest completed/latest
         let selectedGen = null;
         if (selectedGenerationId) {
-          selectedGen = safeGenerationsData.find((g: Generation) => g.id === selectedGenerationId);
+          selectedGen = normalizedGenerations.find((g: Generation) => g.id === selectedGenerationId);
 
           // If not found in the list (eventual consistency), try fetching it directly
           if (!selectedGen) {
@@ -84,19 +64,10 @@ function ProjectDetailContent() {
         }
 
         if (!selectedGen) {
-          const completed = safeGenerationsData.find((g: Generation) => g.status === "completed");
-          const latest = safeGenerationsData[0]; // Already sorted by generation_number desc
+          const completed = normalizedGenerations.find((g: Generation) => g.status === "completed");
+          const latest = normalizedGenerations[0]; // Already sorted by generation_number desc
           selectedGen = completed || latest || null;
         }
-
-        console.log('[ProjectDetail] Current generation set:', {
-          id: selectedGen?.id,
-          status: selectedGen?.status,
-          hasOutputData: !!selectedGen?.output_data,
-          modelUrl: selectedGen?.output_data?.model_url,
-          modelUrlsGlb: selectedGen?.output_data?.model_urls?.glb
-        });
-
         setCurrentGeneration(selectedGen);
 
         // Update document title
@@ -161,13 +132,11 @@ function ProjectDetailContent() {
                     fetchProjectGenerations(projectId)
                   ]);
                   setProject(projectData);
-
-                  // DEFENSIVE: Ensure generationsData is always an array
-                  const safeGenerationsData = Array.isArray(generationsData) ? generationsData : [];
-                  setGenerations(safeGenerationsData);
-
-                  const completed = safeGenerationsData.find((g: Generation) => g.status === "completed");
-                  const latest = safeGenerationsData[0];
+                  // Normalize generationsData to always be an array
+                  const normalizedGenerations = Array.isArray(generationsData) ? generationsData : [];
+                  setGenerations(normalizedGenerations);
+                  const completed = normalizedGenerations.find((g: Generation) => g.status === "completed");
+                  const latest = normalizedGenerations[0];
                   setCurrentGeneration(completed || latest || null);
                 } catch (err) {
                   console.error("Error loading project:", err);

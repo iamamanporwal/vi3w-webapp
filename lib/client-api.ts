@@ -47,12 +47,6 @@ export async function fetchProjects(workflowType?: WorkflowType): Promise<Projec
         throw new Error("Failed to fetch projects");
     }
     const data = await response.json();
-
-    // DEFENSIVE: Ensure we always return an array
-    if (!Array.isArray(data.projects)) {
-        console.warn('[client-api] fetchProjects: API returned non-array data.projects:', data);
-        return [];
-    }
     return data.projects;
 }
 
@@ -101,20 +95,8 @@ export async function fetchProjectGenerations(projectId: string): Promise<Genera
         throw new Error("Failed to fetch project generations");
     }
     const data = await response.json();
-
-    // DEFENSIVE: Ensure we always return an array
-    if (!Array.isArray(data.generations)) {
-        console.warn('[client-api] fetchProjectGenerations: API returned non-array data.generations:', data);
-        return [];
-    }
-
-    console.log('[client-api] fetchProjectGenerations:', {
-        projectId,
-        count: data.generations.length,
-        statuses: data.generations.map((g: Generation) => ({ id: g.id, status: g.status }))
-    });
-
-    return data.generations;
+    // Always normalize to an array to prevent .find() errors
+    return Array.isArray(data.generations) ? data.generations : [];
 }
 
 /**
@@ -128,12 +110,6 @@ export async function fetchTransactions(): Promise<Transaction[]> {
         throw new Error("Failed to fetch transactions");
     }
     const data = await response.json();
-
-    // DEFENSIVE: Ensure we always return an array
-    if (!Array.isArray(data.transactions)) {
-        console.warn('[client-api] fetchTransactions: API returned non-array data.transactions:', data);
-        return [];
-    }
     return data.transactions;
 }
 
