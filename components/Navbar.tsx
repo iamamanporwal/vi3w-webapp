@@ -7,8 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Menu, X, CreditCard, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { getDb } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { getAuth } from "@/lib/firebase";
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -26,7 +25,13 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Fetch credit balance from Firestore
+  // Auto-close mobile menu on navigation
+  const pathname = usePathname();
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  // Fetch credit balance from API
   useEffect(() => {
     const fetchCredits = async () => {
       if (!user) {
@@ -37,10 +42,19 @@ export function Navbar() {
 
       try {
         setCreditsLoading(true);
-        const userDoc = await getDoc(doc(getDb(), 'users', user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setCredits(userData?.credits || 0);
+        const token = await getAuth().currentUser?.getIdToken();
+        if (!token) {
+          setCredits(0);
+          return;
+        }
+
+        const res = await fetch("/api/credits", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setCredits(data.credits || 0);
         } else {
           setCredits(0);
         }
@@ -53,6 +67,10 @@ export function Navbar() {
     };
 
     fetchCredits();
+
+    // Refresh credits every 30 seconds for real-time updates
+    const interval = setInterval(fetchCredits, 30000);
+    return () => clearInterval(interval);
   }, [user]);
 
   return (
@@ -86,9 +104,9 @@ export function Navbar() {
                 </>
               ) : (
                 <>
-                   <NavLink href="/dashboard">Dashboard</NavLink>
-                   <NavLink href="/dashboard/text-to-3d">Text to 3D</NavLink>
-                   <NavLink href="/dashboard/floorplan-3d">Floorplan</NavLink>
+                  <NavLink href="/dashboard">Dashboard</NavLink>
+                  <NavLink href="/dashboard/text-to-3d">Text to 3D</NavLink>
+                  <NavLink href="/dashboard/floorplan-3d">Floorplan</NavLink>
                 </>
               )}
             </div>
@@ -98,7 +116,7 @@ export function Navbar() {
               {isLoggedIn ? (
                 <div className="flex items-center gap-4">
                   {/* Credit Counter */}
-                  <Link 
+                  <Link
                     href="/dashboard/credits"
                     className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-purple-500/50 transition-colors group cursor-pointer"
                   >
@@ -111,28 +129,28 @@ export function Navbar() {
 
                   {/* User Profile */}
                   <div className="flex items-center gap-3 pl-2 border-l border-white/10">
-                    <button 
-                        onClick={() => logout()}
-                        className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10 flex items-center justify-center text-white/80 hover:border-white/30 transition-all cursor-pointer"
-                        title="Logout"
+                    <button
+                      onClick={() => logout()}
+                      className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10 flex items-center justify-center text-white/80 hover:border-white/30 transition-all cursor-pointer"
+                      title="Logout"
                     >
-                        {user.photoURL ? (
-                            <img src={user.photoURL} alt="User" className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                            <User className="w-5 h-5" />
-                        )}
+                      {user.photoURL ? (
+                        <img src={user.photoURL} alt="User" className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        <User className="w-5 h-5" />
+                      )}
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-4">
-                  <Link 
+                  <Link
                     href="/login"
                     className="text-sm font-medium text-white/70 hover:text-white transition-colors"
                   >
                     Log In
                   </Link>
-                  <Link 
+                  <Link
                     href="/signup"
                     className="px-5 py-2 rounded-full bg-white text-black text-sm font-bold hover:bg-gray-200 transition-colors shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)]"
                   >
@@ -143,7 +161,7 @@ export function Navbar() {
             </div>
 
             {/* Mobile Menu Toggle */}
-            <button 
+            <button
               className="md:hidden text-white/70 hover:text-white"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
@@ -162,43 +180,43 @@ export function Navbar() {
             exit={{ opacity: 0, y: -20 }}
             className="fixed inset-0 top-[70px] bg-black/95 backdrop-blur-xl z-40 md:hidden flex flex-col p-6 gap-6 border-t border-white/10"
           >
-             <div className="flex flex-col gap-6 text-lg">
-                {!isLoggedIn ? (
-                    <>
-                        <MobileLink href="/features">Features</MobileLink>
-                        <MobileLink href="/gallery">Gallery</MobileLink>
-                        <MobileLink href="/pricing">Pricing</MobileLink>
-                    </>
-                ) : (
-                    <>
-                        <MobileLink href="/dashboard">Dashboard</MobileLink>
-                        <MobileLink href="/dashboard/text-to-3d">Text to 3D</MobileLink>
-                        <MobileLink href="/dashboard/floorplan-3d">Floorplan</MobileLink>
-                    </>
-                )}
-             </div>
-             
-             <div className="mt-auto border-t border-white/10 pt-6">
-                {!isLoggedIn ? (
-                    <div className="flex flex-col gap-4">
-                        <Link href="/login" className="w-full py-3 rounded-lg bg-white/10 text-center font-medium text-white">Log In</Link>
-                        <Link href="/signup" className="w-full py-3 rounded-lg bg-white text-black text-center font-bold">Get Started</Link>
-                    </div>
-                ) : (
-                    <div className="flex flex-col gap-4">
-                         <Link 
-                           href="/dashboard/credits"
-                           className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-                         >
-                            <span className="text-white/60">Credits</span>
-                            <span className="text-xl font-bold text-white">
-                              {creditsLoading ? "..." : credits !== null ? credits.toLocaleString() : 0}
-                            </span>
-                         </Link>
-                         <button onClick={() => logout()} className="w-full py-3 rounded-lg bg-red-500/10 text-red-400 text-center font-medium hover:bg-red-500/20">Logout</button>
-                    </div>
-                )}
-             </div>
+            <div className="flex flex-col gap-6 text-lg">
+              {!isLoggedIn ? (
+                <>
+                  <MobileLink href="/features">Features</MobileLink>
+                  <MobileLink href="/gallery">Gallery</MobileLink>
+                  <MobileLink href="/pricing">Pricing</MobileLink>
+                </>
+              ) : (
+                <>
+                  <MobileLink href="/dashboard">Dashboard</MobileLink>
+                  <MobileLink href="/dashboard/text-to-3d">Text to 3D</MobileLink>
+                  <MobileLink href="/dashboard/floorplan-3d">Floorplan</MobileLink>
+                </>
+              )}
+            </div>
+
+            <div className="mt-auto border-t border-white/10 pt-6">
+              {!isLoggedIn ? (
+                <div className="flex flex-col gap-4">
+                  <Link href="/login" className="w-full py-3 rounded-lg bg-white/10 text-center font-medium text-white">Log In</Link>
+                  <Link href="/signup" className="w-full py-3 rounded-lg bg-white text-black text-center font-bold">Get Started</Link>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <Link
+                    href="/dashboard/credits"
+                    className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                  >
+                    <span className="text-white/60">Credits</span>
+                    <span className="text-xl font-bold text-white">
+                      {creditsLoading ? "..." : credits !== null ? credits.toLocaleString() : 0}
+                    </span>
+                  </Link>
+                  <button onClick={() => logout()} className="w-full py-3 rounded-lg bg-red-500/10 text-red-400 text-center font-medium hover:bg-red-500/20">Logout</button>
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -209,10 +227,10 @@ export function Navbar() {
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname();
   const isActive = pathname === href;
-  
+
   return (
-    <Link 
-      href={href} 
+    <Link
+      href={href}
       className={cn(
         "text-sm font-medium transition-colors hover:text-white relative py-1",
         isActive ? "text-white" : "text-white/60"
@@ -220,7 +238,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
     >
       {children}
       {isActive && (
-        <motion.div 
+        <motion.div
           layoutId="activeNav"
           className="absolute -bottom-1 left-0 right-0 h-0.5 bg-purple-500 rounded-full"
         />
@@ -230,9 +248,9 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 }
 
 function MobileLink({ href, children }: { href: string; children: React.ReactNode }) {
-    return (
-        <Link href={href} className="text-white/80 hover:text-white font-medium block">
-            {children}
-        </Link>
-    )
+  return (
+    <Link href={href} className="text-white/80 hover:text-white font-medium block">
+      {children}
+    </Link>
+  )
 }

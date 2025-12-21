@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext";
-import { fetchGeneration, Generation } from "@/lib/api";
+import { fetchGeneration, Generation } from "@/lib/client-api";
 import { getDb } from "@/lib/firebase";
 import {
   collection,
@@ -23,7 +23,7 @@ interface GenerationContextType {
 const GenerationContext = createContext<GenerationContextType>({
   activeGenerations: [],
   loading: false,
-  refreshGenerations: async () => {},
+  refreshGenerations: async () => { },
   getGeneration: async () => null,
 });
 
@@ -49,6 +49,7 @@ export const GenerationProvider = ({ children }: { children: React.ReactNode }) 
       created_at: data.created_at,
       updated_at: data.updated_at,
       project_id: data.project_id || null,
+      generation_number: data.generation_number || 0,
     };
   };
 
@@ -77,7 +78,7 @@ export const GenerationProvider = ({ children }: { children: React.ReactNode }) 
       q,
       (snapshot: QuerySnapshot<DocumentData>) => {
         const generations: Generation[] = [];
-        
+
         snapshot.forEach((doc) => {
           try {
             const generation = docToGeneration(doc);
@@ -133,7 +134,7 @@ export const GenerationProvider = ({ children }: { children: React.ReactNode }) 
 
   const getGeneration = useCallback(async (generationId: string): Promise<Generation | null> => {
     if (!user) return null;
-    
+
     try {
       const generation = await fetchGeneration(generationId);
       return generation;

@@ -56,13 +56,14 @@ function initFirebase() {
 // This will not run during build/SSR
 if (typeof window !== "undefined") {
   // Only initialize if we have valid config
-  const hasValidConfig = 
-    process.env.NEXT_PUBLIC_FIREBASE_API_KEY && 
+  const hasValidConfig =
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY !== "undefined" &&
     process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  
+
   if (hasValidConfig) {
     initFirebase();
+    console.log('[Firebase] Initialized with project:', process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
   }
 }
 

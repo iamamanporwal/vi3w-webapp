@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchProjects, Project } from "@/lib/api";
+import { fetchProjects, Project } from "@/lib/client-api";
 import NewProjectCard from "@/components/NewProjectCard";
 import ProjectHistoryGrid from "@/components/ProjectHistoryGrid";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,8 +16,8 @@ export default function TextTo3DPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-        setLoading(false);
-        return;
+      setLoading(false);
+      return;
     }
 
     const loadProjects = async () => {
@@ -49,10 +49,10 @@ export default function TextTo3DPage() {
         {/* Create New Card */}
         <NewProjectCard href="/dashboard/text-to-3d/new" />
       </div>
-      
+
       {/* History Items - Now includes active generations */}
-      <ProjectHistoryGrid 
-        projects={projects} 
+      <ProjectHistoryGrid
+        projects={projects}
         loading={loading || authLoading}
         workflowType="text-to-3d"
         error={error}

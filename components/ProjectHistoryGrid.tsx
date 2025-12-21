@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Project, Generation } from "@/lib/api";
+import { Project, Generation } from "@/lib/client-api";
 import { useGeneration } from "@/contexts/GenerationContext";
 import { useRouter } from "next/navigation";
 import { SkeletonProjectCard } from "./SkeletonLoader";
@@ -90,11 +90,11 @@ export default function ProjectHistoryGrid({ projects, loading, workflowType, er
           const title = generation.workflow_type === "text-to-3d"
             ? generation.input_data?.prompt || "Generating..."
             : (generation.input_data?.prompt || "Generating...");
-          
-          const thumbnail = generation.output_data?.image_url || 
-                           generation.output_data?.isometric_path || 
-                           generation.output_data?.floorplan_path || 
-                           "/file.svg";
+
+          const thumbnail = generation.output_data?.image_url ||
+            generation.output_data?.isometric_path ||
+            generation.output_data?.floorplan_path ||
+            "/file.svg";
 
           return (
             <div
@@ -108,9 +108,9 @@ export default function ProjectHistoryGrid({ projects, loading, workflowType, er
                 ) : (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={thumbnail} 
-                      alt={title} 
+                    <img
+                      src={thumbnail}
+                      alt={title}
                       className="object-cover w-full h-full"
                       onError={() => handleImageError(generation.id)}
                     />
@@ -140,7 +140,7 @@ export default function ProjectHistoryGrid({ projects, loading, workflowType, er
                 <p className="text-xs text-white/50 mt-1 capitalize">
                   {generation.workflow_type.replace(/-/g, " ")}
                 </p>
-                
+
                 {/* Progress bar for active generations */}
                 {(generation.status === "generating" || generation.status === "pending") && (
                   <div className="mt-3">
@@ -188,48 +188,48 @@ export default function ProjectHistoryGrid({ projects, loading, workflowType, er
 
         // Regular project card
         const project = item.data as Project;
-        const title = project.workflow_type === "text-to-3d" 
+        const title = project.workflow_type === "text-to-3d"
           ? (project.input_data?.prompt || "Untitled Project")
           : (project.input_data?.prompt || project.title || "Floorplan Project");
-        
-        let thumbnail = "/file.svg"; 
+
+        let thumbnail = "/file.svg";
         let modelLink = "";
 
         if (project.workflow_type === "text-to-3d") {
-             thumbnail = project.output_data?.image_url || "/file.svg";
-             modelLink = project.output_data?.model_url || "";
+          thumbnail = project.output_data?.image_url || "/file.svg";
+          modelLink = project.output_data?.model_url || "";
         } else {
-             thumbnail = project.output_data?.isometric_path || project.output_data?.floorplan_path || "/file.svg";
-             modelLink = project.output_data?.model_path || "";
+          thumbnail = project.output_data?.isometric_path || project.output_data?.floorplan_path || "/file.svg";
+          modelLink = project.output_data?.model_path || "";
         }
 
         return (
-          <div 
-            key={project.id} 
+          <div
+            key={project.id}
             onClick={() => handleProjectClick(project)}
             className="bg-white/5 border border-white/10 rounded-lg overflow-hidden hover:bg-white/10 transition group cursor-pointer"
           >
             <div className="relative h-48 w-full bg-black/20 flex items-center justify-center">
-               {failedImages.has(project.id) || thumbnail === "/file.svg" ? (
-                 <div className="text-6xl">{getRandomEmoji(project.workflow_type, project.id)}</div>
-               ) : (
-                 <>
-                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                   <img 
-                     src={thumbnail} 
-                     alt={title} 
-                     className="object-cover w-full h-full"
-                     onError={() => handleImageError(project.id)}
-                   />
-                 </>
-               )}
-               {/* Generation count badge */}
-               {project.generation_count && project.generation_count > 1 && (
-                 <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                   <span>{project.generation_count}</span>
-                   <span className="text-[10px]">generations</span>
-                 </div>
-               )}
+              {failedImages.has(project.id) || thumbnail === "/file.svg" ? (
+                <div className="text-6xl">{getRandomEmoji(project.workflow_type, project.id)}</div>
+              ) : (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={thumbnail}
+                    alt={title}
+                    className="object-cover w-full h-full"
+                    onError={() => handleImageError(project.id)}
+                  />
+                </>
+              )}
+              {/* Generation count badge */}
+              {project.generation_count && project.generation_count > 1 && (
+                <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                  <span>{project.generation_count}</span>
+                  <span className="text-[10px]">generations</span>
+                </div>
+              )}
             </div>
             <div className="p-4">
               <h3 className="font-medium truncate text-white" title={title}>{title}</h3>
@@ -239,22 +239,22 @@ export default function ProjectHistoryGrid({ projects, loading, workflowType, er
                   <p className="text-xs text-purple-400">v{project.generation_count}</p>
                 )}
               </div>
-              
+
               <div className="mt-4 flex gap-2">
-                 {modelLink && (
-                     <a 
-                       href={modelLink} 
-                       target="_blank" 
-                       rel="noreferrer" 
-                       onClick={(e) => e.stopPropagation()}
-                       className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded transition"
-                     >
-                        Download 3D
-                     </a>
-                 )}
-                 <span className="text-xs bg-white/10 text-white/70 px-3 py-1.5 rounded">
-                   View project
-                 </span>
+                {modelLink && (
+                  <a
+                    href={modelLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded transition"
+                  >
+                    Download 3D
+                  </a>
+                )}
+                <span className="text-xs bg-white/10 text-white/70 px-3 py-1.5 rounded">
+                  View project
+                </span>
               </div>
             </div>
           </div>

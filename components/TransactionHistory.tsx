@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Transaction } from "@/lib/api";
+import { Transaction } from "@/lib/client-api";
 import { Calendar, CreditCard, Zap, CheckCircle, XCircle, Clock } from "lucide-react";
 import { SkeletonText } from "./SkeletonLoader";
 
@@ -30,7 +30,7 @@ export default function TransactionHistory({ transactions, loading }: Props) {
 
   const formatDate = (timestamp: any): string => {
     if (!timestamp) return "Unknown";
-    
+
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -42,7 +42,7 @@ export default function TransactionHistory({ transactions, loading }: Props) {
     if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? "s" : ""} ago`;
     if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
     if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-    
+
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -112,32 +112,29 @@ export default function TransactionHistory({ transactions, loading }: Props) {
       <div className="flex gap-2">
         <button
           onClick={() => setFilterType("all")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            filterType === "all"
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filterType === "all"
               ? "bg-white/10 text-white"
               : "bg-white/5 text-white/60 hover:bg-white/10"
-          }`}
+            }`}
         >
           All
         </button>
         <button
           onClick={() => setFilterType("purchase")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-            filterType === "purchase"
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${filterType === "purchase"
               ? "bg-white/10 text-white"
               : "bg-white/5 text-white/60 hover:bg-white/10"
-          }`}
+            }`}
         >
           <CreditCard className="w-4 h-4" />
           Purchases
         </button>
         <button
           onClick={() => setFilterType("usage")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-            filterType === "usage"
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${filterType === "usage"
               ? "bg-white/10 text-white"
               : "bg-white/5 text-white/60 hover:bg-white/10"
-          }`}
+            }`}
         >
           <Zap className="w-4 h-4" />
           Usage
@@ -155,11 +152,10 @@ export default function TransactionHistory({ transactions, loading }: Props) {
               <div className="flex items-center gap-3 flex-1">
                 {/* Type Icon */}
                 <div
-                  className={`p-2 rounded-lg ${
-                    transaction.type === "purchase"
+                  className={`p-2 rounded-lg ${transaction.type === "purchase"
                       ? "bg-green-500/20 text-green-400"
                       : "bg-blue-500/20 text-blue-400"
-                  }`}
+                    }`}
                 >
                   {getTypeIcon(transaction.type)}
                 </div>
@@ -181,11 +177,10 @@ export default function TransactionHistory({ transactions, loading }: Props) {
                 {/* Amount */}
                 <div className="text-right">
                   <div
-                    className={`text-lg font-semibold ${
-                      transaction.type === "purchase"
+                    className={`text-lg font-semibold ${transaction.type === "purchase"
                         ? "text-green-400"
                         : "text-white"
-                    }`}
+                      }`}
                   >
                     {transaction.type === "purchase" ? "+" : "-"}
                     {transaction.amount.toLocaleString()}

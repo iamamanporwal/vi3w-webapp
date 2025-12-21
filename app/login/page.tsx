@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -16,9 +16,13 @@ export default function LoginPage() {
     password: ""
   });
 
+  useEffect(() => {
+    if (user) {
+      router.push("/dashboard");
+    }
+  }, [user, router]);
+
   if (user) {
-    router.push("/dashboard");
-    // Return null or a loading state while redirecting
     return null;
   }
 
@@ -51,7 +55,7 @@ export default function LoginPage() {
       } else if (error.code === 'auth/cancelled-popup-request') {
         // Ignore this error, it happens when multiple popups are triggered
       } else {
-         setError('Failed to sign in. Please check your internet connection or try again later. ' + error.message);
+        setError('Failed to sign in. Please check your internet connection or try again later. ' + error.message);
       }
     }
   };
@@ -67,11 +71,11 @@ export default function LoginPage() {
             Sign in to continue generating 3D models
           </p>
         </div>
-        
+
         {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400 text-center">
-                {error}
-            </div>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400 text-center">
+            {error}
+          </div>
         )}
 
         <div className="mt-8 space-y-6">
@@ -87,7 +91,7 @@ export default function LoginPage() {
                 className="relative block w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-3 text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 sm:text-sm"
                 placeholder="Email address"
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
             <div>
@@ -101,16 +105,16 @@ export default function LoginPage() {
                 className="relative block w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-3 text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 sm:text-sm"
                 placeholder="Password"
                 value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />
             </div>
 
             <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex justify-center rounded-lg bg-purple-600 px-4 py-3 text-sm font-semibold text-white hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600 disabled:opacity-70 disabled:cursor-not-allowed transition-all cursor-pointer"
+              type="submit"
+              disabled={isLoading}
+              className="w-full flex justify-center rounded-lg bg-purple-600 px-4 py-3 text-sm font-semibold text-white hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600 disabled:opacity-70 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign In"}
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign In"}
             </button>
           </form>
 

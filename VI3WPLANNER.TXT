@@ -1,0 +1,126 @@
+# Vi3W Development Execution Planner (Robust & Unified)
+
+**Product Context:** Vi3W is a high-end, AI-driven platform for generating 3D content from text and 2D floorplans. It targets creators and architects, offering a seamless, version-controlled workflow. The goal is to build a unified Next.js 15+ application with robust authentication, atomic credit systems, and resilient AI pipelines.
+
+**Reference:** [Product Requirements Document (PRD)](file:///Users/amanporwal/Desktop/vi3w/vi3w%20webapp/frontend/VI3WPRD.TXT)
+
+---
+
+## 1. Phase 1: Critical Fixes & Stabilization (Immediate Action)
+**Goal:** Resolve blocking issues preventing core usage (Auth, 3D Generation, Payments) and ensure the app is usable.
+
+### 1.1. Authentication & Signup (Priority: High)
+*   **Context:** Users reported "14 console errors" and infinite loading loops. This prevents new user acquisition.
+*   **Ideal Outcome:** Users can sign up and log in instantly without errors, redirecting smoothly to the dashboard.
+*   **Files:** `contexts/AuthContext.tsx`, `app/signup/page.tsx`
+*   **Tasks:**
+    *   [x] **Fix Hydration:** Implement `mounted` check in `AuthContext` to prevent server/client mismatches.
+    *   [x] **Fix Loading State:** Ensure `setLoading(false)` always executes, even if Firebase initialization fails.
+    *   [x] **Optimize Redirects:** Prevent `useEffect` loops in `SignupPage` by checking loading state before redirecting.
+*   **Reference:** [Next.js Auth Patterns](https://nextjs.org/docs/app/building-your-application/authentication)
+
+### 1.2. Text-to-3D Workflow (Priority: High)
+*   **Context:** "Image to 3D" step fails. This is the core value proposition. We use Meshy AI for this step.
+*   **Ideal Outcome:** Users receive a high-quality 3D model from their text prompt within minutes, with reliable progress updates.
+*   **Files:** `lib/workflows/textTo3D.ts`, `app/api/text-to-3d/route.ts`
+*   **Tasks:**
+    *   [x] **Fix State Pollution:** Remove `private currentGenerationId` from the class. Pass `generationId` explicitly to all methods to avoid race conditions between concurrent users.
+    *   [x] **Robust Polling:** Ensure `meshy_task_id` is saved to Firestore *immediately* upon submission so polling can resume if the serverless function times out.
+    *   [ ] **Payload Verification:** Ensure `image_url` passed to Meshy is publicly accessible or a valid Data URI.
+*   **Reference:** [Meshy API Documentation](https://docs.meshy.ai/)
+
+### 1.3. Floorplan-to-3D Workflow (Priority: High)
+*   **Context:** "Floorplan 3D" fails. This targets the architecture niche. We use Replicate (Trellis) for this.
+*   **Ideal Outcome:** Architectural floorplans are accurately converted to 3D models, handling errors gracefully.
+*   **Files:** `lib/workflows/floorplan3D.ts`
+*   **Tasks:**
+    *   [x] **Error Logging:** Wrap Replicate calls in try-catch blocks with detailed error logging to diagnose failures.
+    *   [ ] **Input Validation:** Verify `firtoz/trellis` input parameters (e.g., `ss_sampling_steps`, `texture_size`) match the latest model version.
+*   **Reference:** [Replicate API Docs](https://replicate.com/docs)
+
+### 1.4. Payment Gateway (Priority: High)
+*   **Context:** Payments fail, preventing monetization. We use Razorpay.
+*   **Ideal Outcome:** Users can purchase credits securely, with their balance updating immediately upon payment success.
+*   **Files:** `app/api/payments/verify/route.ts`, `lib/razorpay.ts`
+*   **Tasks:**
+    *   [x] **Debug Logging:** Add logs for `expectedSignature` vs `receivedSignature` to identify mismatch causes.
+    *   [ ] **Env Verification:** Ensure `RAZORPAY_KEY_SECRET` is correctly loaded in the Vercel environment.
+*   **Reference:** [Razorpay Web Integration](https://razorpay.com/docs/payments/web-integration/)
+
+### 1.5. Dashboard & Data Fetching (Priority: High)
+*   **Context:** User reports "console errors on all pages" and missing project data.
+*   **Issue:** `DashboardPage` and `CreditsPage` attempt to fetch data before Firebase Auth has finished initializing (`loading` state). This results in `currentUser` being null, causing API calls to be sent without auth headers, returning 401 Unauthorized errors.
+*   **Ideal Outcome:** Pages wait for `authLoading` to complete before attempting to fetch data.
+*   **Files:** `app/dashboard/page.tsx`, `app/dashboard/credits/page.tsx`
+*   **Tasks:**
+    *   [ ] **Fix Dashboard:** Update `app/dashboard/page.tsx` to destructure `loading` from `useAuth` and wait for it before fetching.
+    *   [ ] **Fix Credits:** Update `app/dashboard/credits/page.tsx` to wait for `authLoading` before fetching credits/transactions.
+
+
+---
+
+## 2. Phase 2: Core Infrastructure & Cleanup
+**Goal:** Establish a clean, maintainable codebase by removing legacy artifacts and enforcing a unified architecture.
+
+### 2.1. File Cleanup
+*   **Context:** The project has redundant folders and legacy files from previous iterations.
+*   **Ideal Outcome:** The codebase is free of clutter, making it easier for developers to navigate and maintain.
+*   **Tasks:**
+    *   [ ] **Delete** `frontend/frontend/` (Redundant nested directory).
+    *   [ ] **Delete** `lib/api.ts` (Legacy client-side API calls; replaced by Server Actions).
+    *   [ ] **Delete** `scripts/` (Unused migration scripts).
+    *   [ ] **Delete** `app/test-components/` (Cleanup UI tests).
+
+### 2.2. Environment & Dependencies
+*   **Context:** Ensure all necessary libraries are installed and environment variables are set for production.
+*   **Ideal Outcome:** The application runs consistently across local and production environments with all services connected.
+*   **Tasks:**
+    *   [ ] **Verify Packages:** `firebase-admin`, `replicate`, `razorpay`, `lucide-react`, `framer-motion`.
+    *   [ ] **Check Env Vars:** `FIREBASE_SERVICE_ACCOUNT_JSON`, `MESHY_API_KEY`, `REPLICATE_API_TOKEN`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`.
+
+---
+
+## 3. Phase 3: Robustness & Optimization
+**Goal:** enhance the user experience with premium feel, optimistic UI, and SEO.
+
+### 3.1. Optimistic UI
+*   **Context:** Users should see immediate feedback when they click "Generate", rather than waiting for a server response.
+*   **Ideal Outcome:** The interface feels snappy and responsive, giving users immediate feedback on their actions.
+*   **Tasks:**
+    *   [ ] **Sidebar Updates:** Immediately add a "Starting..." node to the Project Thread sidebar when generation begins.
+    *   [ ] **Credit Display:** Optimistically deduct credits in the UI (revert if the API call fails).
+
+### 3.2. 3D Viewer Optimization
+*   **Context:** The 3D viewer is the "hero" component. It must load fast and look good.
+*   **Ideal Outcome:** 3D models load progressively and look professional, encouraging user interaction.
+*   **Files:** `components/workflows/ModelViewer.tsx`
+*   **Tasks:**
+    *   [ ] **Lazy Loading:** Use `loading="lazy"` for `<model-viewer>`.
+    *   [ ] **Poster Image:** Show the input 2D image as a placeholder (`poster`) while the heavy GLB file loads.
+    *   [ ] **Controls:** Enable `camera-controls`, `auto-rotate`, and `shadow-intensity` for better presentation.
+*   **Reference:** [Model Viewer Docs](https://modelviewer.dev/)
+
+### 3.3. SEO & Metadata
+*   **Context:** Allow users to share their projects with rich previews on social media.
+*   **Ideal Outcome:** Shared project links display attractive previews on social media, driving organic traffic.
+*   **Tasks:**
+    *   [ ] **Dynamic Metadata:** Implement `generateMetadata` in `app/dashboard/projects/[id]/page.tsx` to show project title and preview image in OpenGraph tags.
+
+---
+
+## 4. Phase 4: Verification & Deployment
+**Goal:** Ensure the application is production-ready and bug-free.
+
+### 4.1. Automated Checks
+*   **Ideal Outcome:** The codebase is stable, type-safe, and follows best practices.
+*   **Tasks:**
+    *   [ ] **Build:** Run `next build` to catch type errors and build failures.
+    *   [ ] **Lint:** Run `next lint` to ensure code quality.
+
+### 4.2. Manual Test Plan
+*   **Ideal Outcome:** All core user flows are verified to work as expected in a real-world scenario.
+*   **Tasks:**
+    *   [ ] **Signup Flow:** Create a new account -> Verify redirection to Dashboard.
+    *   [ ] **Text-to-3D:** Enter prompt -> Verify Image Generation -> Verify 3D Generation.
+    *   [ ] **Floorplan:** Upload Floorplan -> Verify Isometric View -> Verify 3D Model.
+    *   [ ] **Payments:** Initiate a test payment -> Verify Credit Addition.

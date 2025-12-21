@@ -1,273 +1,106 @@
 "use client";
 
-export const dynamic = 'force-dynamic';
-
-import { useEffect, useState, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { getAuth } from "@/lib/firebase";
-import { useGeneration } from "@/contexts/GenerationContext";
-import { Generation } from "@/lib/api";
+import { Suspense, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { useSearchParams, useRouter } from "next/navigation";
+import WorkflowForm from "@/components/workflows/WorkflowForm";
+import Floorplan3DForm from "@/components/workflows/Floorplan3DForm";
+import Floorplan3DFormNotebook from "@/components/workflows/Floorplan3DFormNotebook";
+import GenerationProgress from "@/components/workflows/GenerationProgress";
+import { useGenerationStatus } from "@/lib/hooks/useGenerationStatus";
+import { Generation } from "@/lib/client-api";
 import toast from "react-hot-toast";
 
-function Floorplan3DEditorContent() {
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+// Lazy load ModelViewer - only load when needed
+const ModelViewer = dynamic(() => import("@/components/workflows/ModelViewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center h-full min-h-[400px] p-8">
+      <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4" />
+      <p className="text-white/60 text-sm">Loading 3D viewer...</p>
+    </div>
+  ),
+});
+
+function Floorplan3DNewContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const generationId = searchParams.get("generationId");
-  const projectId = searchParams.get("projectId"); // Support projectId for continuing existing project
-  const { getGeneration } = useGeneration();
-  const [generation, setGeneration] = useState<Generation | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const prevStatusRef = useRef<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const projectId = searchParams.get("projectId");
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Fetch token
+  // Handle initial state and hydration
   useEffect(() => {
-    const unsubscribe = getAuth().onIdTokenChanged(async (user) => {
-      if (user) {
-        const t = await user.getIdToken();
-        setToken(t);
-        setLoading(false);
-      } else {
-        setToken(null);
-        setLoading(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Fetch generation status if generationId is provided
-  useEffect(() => {
-    if (!generationId || loading) return;
-
-    let interval: NodeJS.Timeout | null = null;
-
-    const fetchGen = async () => {
-      try {
-        const gen = await getGeneration(generationId);
-        if (gen) {
-          setGeneration(gen);
-          prevStatusRef.current = gen.status;
-          setError(null);
-          
-          // Show toast for initial status if already completed/failed
-          if (gen.status === "completed") {
-            toast.success("Generation completed successfully! Your 3D model is ready.");
-          } else if (gen.status === "failed") {
-            toast.error(
-              gen.error_message || "Generation failed. Please try again.",
-              { duration: 6000 }
-            );
-          }
-          
-          // Poll for updates if generation is active
-          if (gen.status === "pending" || gen.status === "generating") {
-            interval = setInterval(async () => {
-              try {
-                const updatedGen = await getGeneration(generationId);
-                if (updatedGen) {
-                  setGeneration(updatedGen);
-                  
-                  // Show toast notifications for status changes
-                  if (prevStatusRef.current !== updatedGen.status) {
-                    if (updatedGen.status === "completed") {
-                      toast.success("Generation completed successfully! Your 3D model is ready.");
-                    } else if (updatedGen.status === "failed") {
-                      toast.error(
-                        updatedGen.error_message || "Generation failed. Please try again.",
-                        { duration: 6000 }
-                      );
-                    }
-                    prevStatusRef.current = updatedGen.status;
-                  }
-                  
-                  // Stop polling if completed or failed
-                  if (updatedGen.status === "completed" || updatedGen.status === "failed") {
-                    if (interval) clearInterval(interval);
-                  }
-                }
-              } catch (err) {
-                console.error("Error polling generation:", err);
-                toast.error("Failed to check generation status");
-                if (interval) clearInterval(interval);
-              }
-            }, 3000); // Poll every 3 seconds
-          }
-        } else {
-          setError("Generation not found");
-        }
-      } catch (err) {
-        console.error("Error fetching generation:", err);
-        const errorMessage = err instanceof Error ? err.message : "Failed to load generation status";
-        setError(errorMessage);
-        toast.error(errorMessage);
-      }
-    };
-
-    fetchGen();
-
-    // Cleanup function
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [generationId, loading, getGeneration]);
-
-  // Track generation status for loading overlay
-  useEffect(() => {
-    if (generation) {
-      setIsGenerating(generation.status === "generating" || generation.status === "pending");
+    setIsMounted(true);
+    if (generationId && projectId) {
+      router.replace(`/dashboard/projects/${projectId}?generationId=${generationId}`);
     }
-  }, [generation]);
+  }, [generationId, projectId, router]);
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  if (!isMounted) return null;
+
+  const handleGenerationStart = (genId: string, projId: string) => {
+    // Redirect to project page
+    router.push(`/dashboard/projects/${projId}?generationId=${genId}`);
+  };
+
+  // If we have a generationId, show loading while redirecting
+  if (generationId) {
+    return (
+      <div className="min-h-screen bg-black text-white p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white/60">Redirecting to project...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)]">
-      {/* Generation Status Banner */}
-      {generation && (
-        <div className={`px-6 py-3 border-b ${
-          generation.status === "completed" 
-            ? "bg-green-900/20 border-green-500/30" 
-            : generation.status === "failed"
-            ? "bg-red-900/20 border-red-500/30"
-            : "bg-blue-900/20 border-blue-500/30"
-        }`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {generation.status === "generating" && (
-                <span className="animate-spin">⏳</span>
-              )}
-              {generation.status === "pending" && (
-                <span>⏸️</span>
-              )}
-              {generation.status === "completed" && (
-                <span>✅</span>
-              )}
-              {generation.status === "failed" && (
-                <span>❌</span>
-              )}
-              <div>
-                <p className="text-sm font-medium text-white">
-                  {generation.status === "generating" && "Generation in progress..."}
-                  {generation.status === "pending" && "Generation pending..."}
-                  {generation.status === "completed" && "Generation completed!"}
-                  {generation.status === "failed" && "Generation failed"}
-                </p>
-                {(generation.status === "generating" || generation.status === "pending") && (
-                  <p className="text-xs text-white/60 mt-1">
-                    {generation.input_data?.prompt || "Floorplan to 3D"}
-                  </p>
-                )}
-              </div>
-            </div>
-            {(generation.status === "generating" || generation.status === "pending") && (
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col items-end">
-                  <span className="text-xs text-white/60">Progress</span>
-                  <span className="text-sm font-medium text-white">{generation.progress_percentage}%</span>
-                </div>
-                <div className="w-32 bg-white/10 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${generation.progress_percentage}%` }}
-                  />
-                </div>
-              </div>
-            )}
-            {generation.status === "completed" && generation.output_data?.model_path && (
-              <a
-                href={generation.output_data.model_path}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded transition"
-              >
-                Download 3D Model
-              </a>
-            )}
-            {generation.status === "failed" && generation.error_message && (
-              <p className="text-xs text-red-400 max-w-md truncate" title={generation.error_message}>
-                {generation.error_message}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+    <div className="min-h-screen bg-black text-white p-8">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold mb-2 text-center">Vi3W - Floorplan to 3D</h1>
+        <p className="text-white/60 mb-8 text-center">
+          Transform 2D floor plans into stunning 3D models with AI
+        </p>
 
-      {/* Error Message */}
-      {error && (
-        <div className="px-6 py-3 bg-red-900/20 border-b border-red-500/30">
-          <p className="text-sm text-red-400">{error}</p>
-        </div>
-      )}
+        {/* Three-column layout matching notebook */}
+        <Floorplan3DFormNotebook
+          onModelGenerated={(generationId, projectId) => {
+            // Handle model generation - navigate to generation view
+            handleGenerationStart(generationId, projectId);
+          }}
+          projectId={projectId}
+        />
 
-      {/* Iframe Container with Loading Overlay */}
-      <div className="flex-1 bg-black relative" style={{ minHeight: '600px' }}>
-        {loading ? (
-          <div className="flex items-center justify-center h-full text-white/50">
-            Loading editor...
-          </div>
-        ) : (
-          <>
-            <iframe 
-              src={`${BACKEND_URL}/gradio/floorplan-3d/?token=${token || ''}&__theme=dark`}
-              className="w-full h-full border-none absolute inset-0"
-              style={{ minHeight: '600px' }}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              title="Floorplan to 3D Generator"
-            />
-            
-            {/* Loading Animation Overlay */}
-            {isGenerating && (
-              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-10 backdrop-blur-sm">
-                <div className="relative w-32 h-32 mb-6 flex items-center justify-center">
-                  {/* Animated 3D cube loader */}
-                  <div className="cube-loader">
-                    <div className="cube-face front"></div>
-                    <div className="cube-face back"></div>
-                    <div className="cube-face right"></div>
-                    <div className="cube-face left"></div>
-                    <div className="cube-face top"></div>
-                    <div className="cube-face bottom"></div>
-                  </div>
-                </div>
-                <div className="text-center">
-                  <h3 className="text-xl font-semibold text-white mb-2">
-                    Creating Your 3D Model
-                  </h3>
-                  <p className="text-white/60 text-sm mb-4 max-w-md px-4">
-                    {generation?.input_data?.prompt || "Processing your floorplan..."}
-                  </p>
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-32 bg-white/10 rounded-full h-2">
-                      <div
-                        className="bg-gradient-to-r from-violet-500 to-purple-600 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${generation?.progress_percentage || 0}%` }}
-                      />
-                    </div>
-                    <span className="text-white/80 text-sm font-medium">
-                      {generation?.progress_percentage || 0}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+        {/* Footer with instructions */}
+        <div className="mt-8 pt-8 border-t border-white/10">
+          <h3 className="text-lg font-semibold mb-4">🔧 How it works:</h3>
+          <ol className="list-decimal list-inside space-y-2 text-white/80 text-sm">
+            <li><strong>Upload Floor Plan</strong>: Upload your existing 2D floor plan image</li>
+            <li><strong>Isometric Conversion</strong>: The 2D plan is converted to a 3D isometric view using AI</li>
+            <li><strong>3D Model Generation</strong>: Using TRELLIS AI, the isometric view becomes a full 3D GLB model</li>
+            <li><strong>Interactive Viewing</strong>: Explore your 3D model with enhanced viewing controls</li>
+          </ol>
+          <p className="mt-4 text-xs text-white/60">
+            <strong>Supported formats</strong>: PNG, JPG for input | GLB for 3D output | MP4 for preview videos
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
-export default function Floorplan3DEditorPage() {
+export default function Floorplan3DNewPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-black text-white p-8 flex items-center justify-center">
-        <div className="text-white/60">Loading...</div>
-      </div>
-    }>
-      <Floorplan3DEditorContent />
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black text-white p-8 flex items-center justify-center">
+          <div className="text-white/60">Loading...</div>
+        </div>
+      }
+    >
+      <Floorplan3DNewContent />
     </Suspense>
   );
 }

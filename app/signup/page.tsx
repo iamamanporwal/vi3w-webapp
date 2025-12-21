@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -11,15 +11,22 @@ export default function SignupPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: ""
   });
 
+  useEffect(() => {
+    // Only redirect if we have a user AND we are not currently loading
+    // This prevents premature redirects or loops
+    if (user) {
+      router.replace("/dashboard");
+    }
+  }, [user, router]);
+
   if (user) {
-    router.push("/dashboard");
     return null;
   }
 
@@ -63,11 +70,11 @@ export default function SignupPage() {
             Start creating 3D models today
           </p>
         </div>
-        
+
         {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400 text-center">
-                {error}
-            </div>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400 text-center">
+            {error}
+          </div>
         )}
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -82,7 +89,7 @@ export default function SignupPage() {
                 className="relative block w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-3 text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 sm:text-sm"
                 placeholder="Full Name"
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
             <div>
@@ -96,7 +103,7 @@ export default function SignupPage() {
                 className="relative block w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-3 text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 sm:text-sm"
                 placeholder="Email address"
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
             <div>
@@ -110,7 +117,7 @@ export default function SignupPage() {
                 className="relative block w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-3 text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 sm:text-sm"
                 placeholder="Password"
                 value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />
             </div>
           </div>

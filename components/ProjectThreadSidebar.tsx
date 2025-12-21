@@ -1,6 +1,6 @@
 "use client";
 
-import { Generation } from "@/lib/api";
+import { Generation } from "@/lib/client-api";
 import { CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
 
 interface ProjectThreadSidebarProps {
@@ -16,7 +16,7 @@ export function ProjectThreadSidebar({
 }: ProjectThreadSidebarProps) {
   const formatRelativeTime = (timestamp: any): string => {
     if (!timestamp) return "Recently";
-    
+
     try {
       const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
       const now = new Date();
@@ -59,7 +59,7 @@ export function ProjectThreadSidebar({
   return (
     <div className="bg-white/5 border border-white/10 rounded-lg p-6 h-full">
       <h2 className="text-xl font-semibold mb-4">Generation History</h2>
-      
+
       {generations.length === 0 ? (
         <div className="text-white/60 text-sm text-center py-8">
           No generations yet
@@ -71,30 +71,28 @@ export function ProjectThreadSidebar({
             {generations.map((gen, index) => {
               const isActive = currentGenerationId === gen.id;
               const isLast = index === generations.length - 1;
-              
+
               return (
                 <div key={gen.id} className="relative mb-4">
                   {/* Timeline dot */}
                   <div
-                    className={`absolute -left-[9px] top-2 w-4 h-4 rounded-full border-2 ${
-                      isActive
+                    className={`absolute -left-[9px] top-2 w-4 h-4 rounded-full border-2 ${isActive
                         ? "bg-purple-500 border-purple-400"
                         : gen.status === "completed"
-                        ? "bg-green-500 border-green-400"
-                        : gen.status === "failed"
-                        ? "bg-red-500 border-red-400"
-                        : "bg-yellow-500 border-yellow-400"
-                    }`}
+                          ? "bg-green-500 border-green-400"
+                          : gen.status === "failed"
+                            ? "bg-red-500 border-red-400"
+                            : "bg-yellow-500 border-yellow-400"
+                      }`}
                   />
-                  
+
                   {/* Generation card */}
                   <button
                     onClick={() => onGenerationClick(gen)}
-                    className={`w-full text-left p-3 rounded-lg transition-all ${
-                      isActive
+                    className={`w-full text-left p-3 rounded-lg transition-all ${isActive
                         ? "bg-purple-500/20 border border-purple-500/50 shadow-lg shadow-purple-500/10"
                         : "bg-white/5 hover:bg-white/10 border border-transparent"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -107,11 +105,11 @@ export function ProjectThreadSidebar({
                         {formatRelativeTime(gen.created_at)}
                       </span>
                     </div>
-                    
+
                     <div className="text-xs text-white/70 mb-2 line-clamp-2">
                       {truncatePrompt(gen.input_data?.prompt)}
                     </div>
-                    
+
                     {/* Progress bar for active generations */}
                     {(gen.status === "generating" || gen.status === "pending") && (
                       <div className="mt-2">
@@ -126,7 +124,7 @@ export function ProjectThreadSidebar({
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Error message for failed generations */}
                     {gen.status === "failed" && gen.error_message && (
                       <div className="mt-2 text-xs text-red-400 line-clamp-1" title={gen.error_message}>
@@ -134,7 +132,7 @@ export function ProjectThreadSidebar({
                       </div>
                     )}
                   </button>
-                  
+
                   {/* Timeline line (not for last item) */}
                   {!isLast && (
                     <div className="absolute -left-[1px] top-8 w-0.5 h-4 bg-white/10" />

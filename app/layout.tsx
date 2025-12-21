@@ -19,7 +19,20 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Vi3W - Text & Floorplan to 3D",
-  description: "Generate 3D models from text and floorplans with AI.",
+  description: "Generate high-quality 3D models from text prompts and 2D floorplans using AI. The ultimate tool for architects and designers.",
+  keywords: ["AI", "3D generation", "floorplan to 3D", "text to 3D", "architecture", "design", "Meshy", "Trellis"],
+  openGraph: {
+    title: "Vi3W - Text & Floorplan to 3D",
+    description: "Generate high-quality 3D models from text prompts and 2D floorplans using AI.",
+    type: "website",
+    locale: "en_US",
+    siteName: "Vi3W",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Vi3W - Text & Floorplan to 3D",
+    description: "Generate high-quality 3D models from text prompts and 2D floorplans using AI.",
+  },
 };
 
 export default function RootLayout({

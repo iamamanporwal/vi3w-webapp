@@ -1,0 +1,84 @@
+# Product Requirements Document (PRD): Vi3W
+
+## 1. Executive Summary
+**Project Name:** Vi3W
+**Objective:** To provide a high-end, AI-driven platform for generating 3D content from text and 2D floorplans. Vi3W targets creators, architects, and designers by offering a seamless, version-controlled workflow for 3D asset creation. The platform is built on a unified Next.js architecture with a custom, robust credit system integrated with Firebase and Razorpay.
+
+---
+
+## 2. User Flow & Site Architecture
+
+### 2.1. Landing Page (Marketing)
+*   **Behavior:** Modern, high-conversion landing page with glassmorphism and micro-animations.
+*   **CTA:** "Get Started" redirects to Firebase Auth (Google/Email).
+*   **Edge Case:** If a user is already logged in, "Get Started" should redirect directly to the Dashboard.
+
+### 2.2. Unified Dashboard
+*   **Behavior:** A central hub where users can switch between "Text to 3D" and "Floorplan 3D" workflows.
+*   **Sidebar:** Contains workflow toggles, project history, and the "Project Thread" view when a project is selected.
+*   **Credit Display:** Real-time credit balance shown in the top navigation bar.
+
+### 2.3. Project Detail & Threads
+*   **Behavior:** Each project is a container for multiple "Generations".
+*   **Git-like History:** A vertical timeline (thread) shows all versions (v1, v2, v3...). Clicking a version loads its specific 3D model and parameters.
+*   **Edge Case:** If a generation is in progress, the thread should show a loading state with a progress percentage.
+
+---
+
+## 3. Feature Details & Behaviors
+
+### 3.1. Text-to-3D Workflow
+*   **Input:** Text prompt + Optional reference image.
+*   **Process:**
+    1.  User enters prompt.
+    2.  (Optional) App generates a 2D image first (Free).
+    3.  User triggers 3D generation (Costs 125 Credits).
+    4.  Meshy AI API is called.
+*   **Output:** Interactive 3D model (.glb).
+*   **Edge Case:** If the prompt is flagged by AI safety filters, provide a clear error message and do not deduct credits.
+
+### 3.2. Floorplan-to-3D Workflow
+*   **Input:** 2D Floorplan image (Upload) + Optional prompt.
+*   **Process:**
+    1.  User uploads floorplan.
+    2.  App converts floorplan to an isometric architectural view (Free).
+    3.  User triggers 3D conversion (Costs 125 Credits).
+    4.  TRELLIS model (via Replicate) generates the 3D model.
+*   **Output:** 3D model + Preview video.
+*   **Edge Case:** Low-resolution floorplans might result in poor 3D quality; provide a warning before the user spends credits.
+
+### 3.3. Custom Credit System (Firebase-Based)
+*   **Architecture:** We do NOT use Flexprice. We use a custom Firebase-based counter.
+*   **Logic:**
+    *   **Initial Grant:** New users receive 1,250 credits upon first login.
+    *   **Deduction:** 125 credits are deducted *only* upon a successful 3D generation trigger.
+    *   **Atomic Operations:** Credits are updated using Firestore `increment` to prevent race conditions.
+    *   **Verification:** Server-side check (Next.js API/Server Action) verifies balance before calling AI APIs.
+*   **Edge Case:** If an AI API call fails *after* credit deduction, a "Refund" logic must be triggered to restore credits.
+
+### 3.4. Credit & Billing (Razorpay)
+*   **Behavior:** Users can buy 1,250 credits for ₹4000.
+*   **Integration:** Razorpay checkout modal. Upon success, a webhook or verification action updates the Firebase credit counter.
+*   **Low Credit Banner:** Appears when credits drop below 125.
+
+---
+
+## 4. Edge Cases & Error Handling
+
+| Scenario | Behavior |
+| :--- | :--- |
+| **Insufficient Credits** | Disable "Generate" button; show "Buy Credits" CTA. |
+| **Interrupted Generation** | If the user closes the tab, the generation continues on the server. The status is updated in Firestore and reflected when the user returns. |
+| **API Timeout** | If Meshy/Replicate takes > 5 mins, mark generation as "Failed" and notify user. |
+| **Invalid File Upload** | Only allow .jpg, .png, .webp for floorplans. Max size 5MB. |
+| **Concurrent Generations** | Allow users to start multiple generations across different projects simultaneously. |
+| **Network Failure** | Implement exponential backoff for polling generation status. |
+
+---
+
+## 5. Technical Stack
+*   **Frontend:** Next.js 15+, TypeScript, Tailwind CSS.
+*   **Backend:** Next.js API Routes & Server Actions.
+*   **Database/Auth:** Firebase (Firestore, Auth, Storage).
+*   **AI APIs:** Meshy AI, Replicate (TRELLIS, nano-banana).
+*   **Payments:** Razorpay.

@@ -2,16 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getDb } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
-import { fetchTransactions, createPaymentOrder, verifyPayment, Transaction } from "@/lib/api";
+import { getAuth } from "@/lib/firebase";
+import { fetchTransactions, createPaymentOrder, verifyPayment, Transaction } from "@/lib/client-api";
 import { loadRazorpayScript, openRazorpayCheckout } from "@/lib/razorpay";
 import TransactionHistory from "@/components/TransactionHistory";
 import { CreditCard, Zap, Sparkles, Loader2, CheckCircle, XCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function CreditsPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [credits, setCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -20,9 +19,11 @@ export default function CreditsPage() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
-  // Fetch credit balance
+  // Fetch credit balance from API
   useEffect(() => {
     const fetchCredits = async () => {
+      if (authLoading) return;
+
       if (!user) {
         setCredits(null);
         setCreditsLoading(false);
@@ -31,10 +32,19 @@ export default function CreditsPage() {
 
       try {
         setCreditsLoading(true);
-        const userDoc = await getDoc(doc(getDb(), 'users', user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setCredits(userData?.credits || 0);
+        const token = await getAuth().currentUser?.getIdToken();
+        if (!token) {
+          setCredits(0);
+          return;
+        }
+
+        const res = await fetch("/api/credits", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setCredits(data.credits || 0);
         } else {
           setCredits(0);
         }
@@ -47,11 +57,13 @@ export default function CreditsPage() {
     };
 
     fetchCredits();
-  }, [user]);
+  }, [user, authLoading]);
 
   // Fetch transactions
   useEffect(() => {
     const loadTransactions = async () => {
+      if (authLoading) return;
+
       if (!user) {
         setTransactions([]);
         setTransactionsLoading(false);
@@ -71,18 +83,25 @@ export default function CreditsPage() {
     };
 
     loadTransactions();
-  }, [user]);
+  }, [user, authLoading]);
 
   // Refresh credits after successful payment
   const refreshCredits = async () => {
     if (!user) return;
-    
+
     try {
-      const userDoc = await getDoc(doc(getDb(), 'users', user.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setCredits(userData?.credits || 0);
+      const token = await getAuth().currentUser?.getIdToken();
+      if (!token) return;
+
+      const res = await fetch("/api/credits", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCredits(data.credits || 0);
       }
+
       // Also refresh transactions
       const fetchedTransactions = await fetchTransactions();
       setTransactions(fetchedTransactions);
@@ -105,8 +124,8 @@ export default function CreditsPage() {
       // Load Razorpay script
       await loadRazorpayScript();
 
-      // Create payment order on backend
-      const orderData = await createPaymentOrder();
+      // Create payment order on backend (5000 cents = $50, 1250 credits)
+      const orderData = await createPaymentOrder(5000, 1250);
       const razorpayKeyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
       if (!razorpayKeyId) {
@@ -136,13 +155,13 @@ export default function CreditsPage() {
               response.razorpay_order_id,
               response.razorpay_signature
             );
-            
+
             setPaymentSuccess(true);
             setPaymentLoading(false);
-            
+
             // Refresh credits and transactions
             await refreshCredits();
-            
+
             // Clear success message after 5 seconds
             setTimeout(() => setPaymentSuccess(false), 5000);
           } catch (error: any) {

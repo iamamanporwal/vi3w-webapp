@@ -1,0 +1,111 @@
+# Technical Architecture: Vi3W (Unified Next.js)
+
+## 1. System Overview
+Vi3W is a unified Next.js 15+ application that consolidates frontend and backend logic into a single codebase. It leverages React Server Components (RSC) for efficient data fetching and Server Actions for secure, type-safe mutations. The architecture is designed for high performance, scalability, and a premium user experience.
+
+---
+
+## 2. Frontend Architecture & UX Behavior
+
+### 2.1. Component Strategy
+*   **Atomic Design**: Components are divided into `ui` (base elements), `workflows` (complex logic), and `dashboard` (layout-specific).
+*   **Server vs. Client Components**: 
+    *   **Server Components**: Used for page layouts, project listings, and static content to reduce client-side JS.
+    *   **Client Components**: Used for interactive forms, 3D viewers, and real-time status updates.
+
+### 2.2. User Experience (UX) Details
+*   **Optimistic UI**: When a user triggers a generation, the UI immediately adds a "Pending" node to the Project Thread sidebar.
+*   **Real-time Synchronization**: Uses Firestore `onSnapshot` listeners on the client side to update generation progress (0-100%) and status without page refreshes.
+*   **Async Polling**: For AI generation tasks (Text-to-Image, Image-to-3D), the frontend uses a polling mechanism to check status, ensuring UI responsiveness and handling long-running processes gracefully.
+*   **3D Visualization**: Uses `<model-viewer>` for high-performance, interactive 3D inspection with auto-rotation and exposure controls.
+*   **Skeleton States**: Custom skeleton loaders for the Project History Grid and Thread Sidebar to prevent layout shifts.
+*   **Micro-interactions**: Framer Motion for smooth transitions between dashboard views and workflow steps.
+
+---
+
+## 3. Backend & API Logic
+
+### 3.1. Server Actions (Primary Mutation Layer)
+*   **Location**: `app/actions/`
+*   **Responsibility**: Handle user-triggered events like starting a generation, updating project metadata, or initiating payments.
+*   **Security**: All actions verify the user's Firebase ID token and check credit balances server-side before proceeding.
+
+### 3.2. Workflow Orchestration
+*   **Location**: `lib/workflows/`
+*   **Pattern**: Workflows (TextTo3D, Floorplan3D) are implemented as classes extending a `BaseWorkflow`.
+*   **Resilience**:
+    *   **Async Processing**: AI generation is handled asynchronously. The API returns a prediction ID immediately, and the client polls for the result.
+    *   **Retry Logic**: Exponential backoff for transient AI API failures.
+    *   **Timeout Handling**: 
+        *   **Image Generation**: 1-minute timeout.
+        *   **3D Generation**: 7-minute timeout.
+    *   **Atomic Credits**: Credits are deducted using Firestore `increment` only after the generation event is successfully created.
+
+### 3.3. API Routes (Secondary Layer)
+*   **Location**: `app/api/`
+*   **Usage**: Reserved for external webhooks (Razorpay) and legacy integrations that require standard HTTP endpoints.
+*   **Status Endpoints**: Dedicated endpoints (e.g., `/api/generate-image/status`) allow clients to poll for the status of long-running tasks.
+
+---
+
+## 4. Data & Infrastructure
+
+### 4.1. Firebase Firestore
+*   **Collections**:
+    *   `users`: Stores `creditBalance` and profile info.
+    *   `projects`: Metadata for 3D projects.
+    *   `generations`: Detailed logs for every AI attempt, linked to a `projectId`.
+    *   `transactions`: Audit log for credit usage and purchases.
+
+### 4.2. Firebase Storage
+*   **Structure**: `users/{uid}/projects/{pid}/generations/{v#}/{file}`.
+*   **Optimization**: Public URLs are generated with long-lived tokens for caching.
+
+---
+
+## 5. Clean File Structure
+
+```
+/
+├── app/
+│   ├── (auth)/             # Login/Signup routes
+│   ├── actions/            # Server Actions (projects.ts, credits.ts)
+│   ├── api/                # Webhooks and external endpoints
+│   ├── dashboard/          # Main app shell and project views
+│   └── layout.tsx          # Root layout with providers
+├── components/
+│   ├── dashboard/          # Sidebar, Navbar, HistoryGrid
+│   ├── ui/                 # Buttons, Inputs, Modals (Generic)
+│   └── workflows/          # TextTo3DForm, Floorplan3DForm, ModelViewer
+├── contexts/               # AuthContext, UIContext
+├── lib/
+│   ├── client/             # Client-only utils (formatting, 3D helpers)
+│   ├── server/             # Server-only logic (firebase-admin, AI SDKs)
+│   └── workflows/          # Core AI pipeline logic (Base, Text, Floorplan)
+├── types/                  # Centralized TypeScript interfaces
+└── public/                 # Static assets (logos, icons)
+```
+
+---
+
+## 6. Edge Cases & Robustness
+
+*   **Race Conditions**: Use Firestore Transactions when updating user credits and creating generation events simultaneously.
+*   **Partial Failures**: If the 3D generation fails but the 2D image succeeded, the credit is refunded, but the 2D asset is kept in the thread.
+*   **Large File Handling**: Implement client-side compression for floorplan uploads to reduce latency and storage costs.
+*   **Auth Expiry**: Middleware automatically redirects to `/login` if the Firebase session expires during an active generation.
+*   **Timeouts**: Strict client-side timeouts ensure users aren't stuck waiting indefinitely for stalled generations.
+
+---
+
+## 7. Cleanup & Performance (Delete List)
+
+To optimize performance and maintainability, the following legacy/redundant files should be removed:
+
+1.  **`frontend/frontend/`**: Redundant nested directory.
+2.  **`lib/api.ts`**: Legacy client-side API caller (replaced by Server Actions).
+3.  **`Technikalass.txt`**: Replaced by this document.
+4.  **`PRD.txt` & `MigrationPlannerPRD.txt`**: Replaced by `VI3WPRD.TXT`.
+5.  **`test-firestore.js`**: Temporary test script.
+6.  **`scripts/`**: If empty or containing unused migration scripts.
+7.  **`app/test-components/`**: Remove once UI is stable.

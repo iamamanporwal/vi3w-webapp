@@ -1,0 +1,278 @@
+## Basic model info
+
+Model name: firtoz/trellis
+Model description: A powerful 3D asset generation model
+
+
+## Model inputs
+
+- images (required): List of input images to generate 3D asset from (array)
+- seed (optional): Random seed for generation (integer)
+- randomize_seed (optional): Randomize seed (boolean)
+- generate_color (optional): Generate color video render (boolean)
+- generate_normal (optional): Generate normal video render (boolean)
+- generate_model (optional): Generate 3D model file (GLB) (boolean)
+- save_gaussian_ply (optional): Save Gaussian point cloud as PLY file (boolean)
+- return_no_background (optional): Return the preprocessed images without background (boolean)
+- ss_guidance_strength (optional): Stage 1: Sparse Structure Generation - Guidance Strength (number)
+- ss_sampling_steps (optional): Stage 1: Sparse Structure Generation - Sampling Steps (integer)
+- slat_guidance_strength (optional): Stage 2: Structured Latent Generation - Guidance Strength (number)
+- slat_sampling_steps (optional): Stage 2: Structured Latent Generation - Sampling Steps (integer)
+- mesh_simplify (optional): GLB Extraction - Mesh Simplification (only used if generate_model=True) (number)
+- texture_size (optional): GLB Extraction - Texture Size (only used if generate_model=True) (integer)
+
+
+## Model output schema
+
+{
+  "type": "object",
+  "title": "PredictOutput",
+  "properties": {
+    "model_file": {
+      "type": "string",
+      "title": "Model File",
+      "format": "uri"
+    },
+    "color_video": {
+      "type": "string",
+      "title": "Color Video",
+      "format": "uri"
+    },
+    "gaussian_ply": {
+      "type": "string",
+      "title": "Gaussian Ply",
+      "format": "uri"
+    },
+    "normal_video": {
+      "type": "string",
+      "title": "Normal Video",
+      "format": "uri"
+    },
+    "combined_video": {
+      "type": "string",
+      "title": "Combined Video",
+      "format": "uri"
+    },
+    "no_background_images": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "title": "No Background Images"
+    }
+  }
+}
+
+If the input or output schema includes a format of URI, it is referring to a file.
+
+
+## Example inputs and outputs
+
+Use these example outputs to better understand the types of inputs the model accepts, and the types of outputs the model returns:
+
+### Example (https://replicate.com/p/8h775kppf9rj60ckzmsry8ckj4)
+
+#### Input
+
+```json
+{
+  "seed": 0,
+  "images": [
+    "https://replicate.delivery/pbxt/MClj4HeBGlMw8Jwr8nRJgG4gtSMuIzHYZmsV2XKeJkYtqFYg/yoimiya_3.png",
+    "https://replicate.delivery/pbxt/MClj53w5pbLeLnZuBtDdhqIyolFZBXJ30nlM2d3IeCNfbawR/yoimiya_2.png",
+    "https://replicate.delivery/pbxt/MClj4vk3vYcbRp88EPypUzwUnJFScjLLEqTDgVNKiQg2LiRS/yoimiya_1.png"
+  ],
+  "texture_size": 2048,
+  "mesh_simplify": 0.9,
+  "generate_color": true,
+  "generate_model": true,
+  "randomize_seed": true,
+  "generate_normal": false,
+  "ss_sampling_steps": 12,
+  "slat_sampling_steps": 12,
+  "ss_guidance_strength": 7.5,
+  "slat_guidance_strength": 3
+}
+```
+
+#### Output
+
+```json
+{
+  "model_file": "https://replicate.delivery/yhqm/e92dQj5ltczLUiXknNARE0JSUwrZMbdY8LY406ai77gWNMfTA/output.glb",
+  "color_video": "https://replicate.delivery/yhqm/s4zZA2breS25B6sffONCKebGhhIjijj4vMypTIMa8Dt0qh5PB/output_color.mp4",
+  "normal_video": null,
+  "combined_video": null,
+  "no_background_images": [
+    "https://replicate.delivery/yhqm/MfGPrnwFDER0TS2yiblgnCcXpVsQV6nk1ZCW8ukKyFfsaYenA/output_no_background_0.png",
+    "https://replicate.delivery/yhqm/DAH2dLrIdt7KAt5ScEWLF1ewepeVBO7gdie2Peru3KLiVDzfE/output_no_background_1.png",
+    "https://replicate.delivery/yhqm/WcIYW20ZGV4ffEtZLbuCHPYP1gwcY7Ev0fkcvUOOwGJZ1w8nA/output_no_background_2.png"
+  ]
+}
+```
+
+
+### Example (https://replicate.com/p/gp300cmz7nrj40cmc0js05ejrc)
+
+#### Input
+
+```json
+{
+  "seed": 0,
+  "images": [
+    "https://replicate.delivery/pbxt/MJaYRxQMgIzPsALScNadsZFCXR2h1n97xBzhRinmUQw9aw25/ephemeros_a_dune_sandworm_with_black_background_de398ce7-2276-4634-8f1d-c4ed2423cda4.png"
+  ],
+  "texture_size": 2048,
+  "mesh_simplify": 0.9,
+  "generate_color": true,
+  "generate_model": true,
+  "randomize_seed": true,
+  "generate_normal": false,
+  "save_gaussian_ply": true,
+  "ss_sampling_steps": 38,
+  "slat_sampling_steps": 12,
+  "return_no_background": false,
+  "ss_guidance_strength": 7.5,
+  "slat_guidance_strength": 3
+}
+```
+
+#### Output
+
+```json
+{
+  "model_file": "https://replicate.delivery/yhqm/5xOmxKPXDTpnIdxRRvs91WKWHTYNGmdBjuE7DbBEigZf0WCKA/output.glb",
+  "color_video": "https://replicate.delivery/yhqm/wJejQmfsfyNf3T4soquMhYLR34F07LESybQQsy8iYmy2n2SQB/output_color.mp4",
+  "gaussian_ply": "https://replicate.delivery/yhqm/tjyjYewq6fj2xUkco7MnifmmL2CeHG3Wfl7Zw5vdxwu0PtlgC/output_gaussian.ply",
+  "normal_video": null,
+  "combined_video": null,
+  "no_background_images": null
+}
+```
+
+
+### Example (https://replicate.com/p/xg5e45k9znrj40cmem4v7y2t9w)
+
+#### Input
+
+```json
+{
+  "seed": 0,
+  "images": [
+    "https://replicate.delivery/pbxt/ML1p0eA4AEhEvXPlIzds5RWD4axHK8Qj5276Q4Gi9aAuqg1G/20250117_144447.jpg",
+    "https://replicate.delivery/pbxt/ML1p0XhuTj7PjRPOIfN3q0ZNurZgN3EgWjuYI5ISHMl7DlmJ/20250117_144443.jpg",
+    "https://replicate.delivery/pbxt/ML1ozyZUROpp5iLoLEI2SWn4YBe5jmJ5DPxrjg9FivKLvKEl/20250117_144437.jpg",
+    "https://replicate.delivery/pbxt/ML1p0TLpeGDAMlEranut1WEJNljGKP94IV0PdtRtnrbpHCeX/20250117_144431.jpg",
+    "https://replicate.delivery/pbxt/ML1p0rXh6U26VEzshLLFZq30UzVk6zsc11AOIfhYoDIbepn1/20250117_144423.jpg"
+  ],
+  "texture_size": 2048,
+  "mesh_simplify": 0.9,
+  "generate_color": true,
+  "generate_model": true,
+  "randomize_seed": true,
+  "generate_normal": false,
+  "save_gaussian_ply": true,
+  "ss_sampling_steps": 38,
+  "slat_sampling_steps": 12,
+  "return_no_background": false,
+  "ss_guidance_strength": 7.5,
+  "slat_guidance_strength": 3
+}
+```
+
+#### Output
+
+```json
+{
+  "model_file": "https://replicate.delivery/yhqm/ZeryUVHg64we6EwKh44TxkO6HVZZWaQveBafideoZLeZR0gBF/output.glb",
+  "color_video": "https://replicate.delivery/yhqm/OMLHE43og7ooOBlpAmkxppfXqgDdgilzbXgnsDPRInwioBDKA/output_color.mp4",
+  "gaussian_ply": "https://replicate.delivery/yhqm/juaXDr5cNTIBNR1jx6A6J4u8pwFeXllFbvojb1ky6w7ioBDKA/output_gaussian.ply",
+  "normal_video": null,
+  "combined_video": null,
+  "no_background_images": null
+}
+```
+
+
+## Model readme
+
+> # TRELLIS
+> 
+> > **Note**: This Replicate deployment is maintained by firtoz, a fan of the TRELLIS project, and is not officially affiliated with Microsoft or the TRELLIS team. All rights, licenses, and intellectual property belong to Microsoft.
+> 
+> TRELLIS is a powerful 3D asset generation model that converts text or image prompts into high-quality 3D assets. This Replicate deployment focuses on the image-to-3D generation capabilities of TRELLIS.
+> 
+> <img src="https://github.com/microsoft/TRELLIS/blob/main/assets/teaser.png?raw=true" width="100%">
+> 
+> ## Model Description
+> 
+> TRELLIS uses a unified Structured LATent (SLAT) representation that enables generation of different 3D output formats. The model deployed here is TRELLIS-image-large, which contains 1.2B parameters and is trained on a diverse dataset of 500K 3D objects.
+> 
+> Key features:
+> - Generate high-quality 3D assets from input images
+> - Multiple output formats: 3D Gaussians, Radiance Fields, and textured meshes
+> - Detailed shape and texture generation
+> - Support for various viewpoint renderings
+> 
+> For more examples and to try it directly in your browser, visit the [Replicate model page](https://replicate.com/firtoz/trellis).
+> 
+> ## Input Format
+> 
+> The model accepts:
+> - An input image (PNG or JPEG format)
+> - Optional parameters for controlling the generation process
+> 
+> ## Output Format
+> 
+> The model outputs:
+> - A GLB file containing the generated 3D model with textures
+> - Preview renders from multiple angles
+> - Optional: Raw 3D Gaussians or Radiance Field representations
+> 
+> ## Example Usage
+> 
+> ```python
+> import replicate
+> 
+> output = replicate.run(
+>     "firtoz/trellis:version",
+>     input={
+>         "seed": 0,
+>         "image": "https://replicate.delivery/pbxt/M6rvlcKpjcTijzvLfJw8SCWQ74M1jrxowbVDT6nNTxREcvxO/ephemeros_cartoonish_character_art_cyberpunk_crocodile_white_ba_486fb649-bc68-46a0-b429-751b43734b89.png",
+>         "texture_size": 1024,
+>         "mesh_simplify": 0.95,
+>         "generate_color": True,
+>         "generate_model": True,
+>         "randomize_seed": True,
+>         "generate_normal": True,
+>         "ss_sampling_steps": 12,
+>         "slat_sampling_steps": 12,
+>         "ss_guidance_strength": 7.5,
+>         "slat_guidance_strength": 3
+>     }
+> )
+> print(output)
+> ```
+> 
+> ## Citations
+> 
+> ```bibtex
+> @article{xiang2024structured,
+>     title   = {Structured 3D Latents for Scalable and Versatile 3D Generation},
+>     author  = {Xiang, Jianfeng and Lv, Zelong and Xu, Sicheng and Deng, Yu and Wang, Ruicheng and Zhang, Bowen and Chen, Dong and Tong, Xin and Yang, Jiaolong},
+>     journal = {arXiv preprint arXiv:2412.01506},
+>     year    = {2024}
+> }
+> ```
+> 
+> ## License
+> 
+> TRELLIS is released under the MIT License. See [LICENSE](https://github.com/microsoft/TRELLIS/blob/main/LICENSE) for details.
+> 
+> ## Links
+> 
+> - [Project Page](https://trellis3d.github.io)
+> - [Paper](https://arxiv.org/abs/2412.01506)
+> - [GitHub Repository](https://github.com/microsoft/TRELLIS)
+> - [Hugging Face Demo](https://huggingface.co/spaces/JeffreyXiang/TRELLIS)
