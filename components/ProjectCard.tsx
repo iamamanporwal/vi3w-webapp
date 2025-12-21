@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Download, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 import { Project } from "@/lib/client-api";
 import { getRandomEmoji } from "@/lib/emojiUtils";
 import { downloadModel } from "@/lib/client/downloadUtils";
@@ -70,7 +71,7 @@ export function ProjectCard({ project, onClick, index = 0 }: ProjectCardProps) {
         e.stopPropagation(); // Prevent card click navigation
 
         if (!project.output_data?.model_url && !project.output_data?.model_urls?.glb) {
-            alert("Model not available for download");
+            toast.error("Model not available for download");
             return;
         }
 
@@ -92,9 +93,22 @@ export function ProjectCard({ project, onClick, index = 0 }: ProjectCardProps) {
 
             // Download GLB format (most compatible)
             await downloadModel(modelUrls as any, 'glb', baseName);
-        } catch (error) {
+            toast.success("Model downloaded successfully!");
+        } catch (error: any) {
             console.error("Download failed:", error);
-            alert("Failed to download model. Please try again.");
+
+            // Check if project is older than 30 days
+            const projectDate = project.created_at?.toMillis?.() || project.created_at?.seconds * 1000 || 0;
+            const daysSinceCreation = (Date.now() - projectDate) / (1000 * 60 * 60 * 24);
+
+            if (daysSinceCreation > 30) {
+                toast.error("This model is no longer available (older than 30 days). Meshy.ai automatically deletes models after 30 days.", {
+                    duration: 5000,
+                    style: { maxWidth: '500px' }
+                });
+            } else {
+                toast.error("Failed to download model. Please try again or contact support.");
+            }
         } finally {
             setIsDownloading(false);
         }
