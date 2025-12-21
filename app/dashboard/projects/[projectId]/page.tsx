@@ -39,12 +39,14 @@ function ProjectDetailContent() {
         ]);
 
         setProject(projectData);
-        setGenerations(generationsData);
+        // Defensive: Normalize to array in case API returns unexpected format
+        const normalizedGenerations = Array.isArray(generationsData) ? generationsData : [];
+        setGenerations(normalizedGenerations);
 
         // Set current generation based on URL param, or default to latest completed/latest
         let selectedGen = null;
         if (selectedGenerationId) {
-          selectedGen = generationsData.find((g: Generation) => g.id === selectedGenerationId);
+          selectedGen = normalizedGenerations.find((g: Generation) => g.id === selectedGenerationId);
 
           // If not found in the list (eventual consistency), try fetching it directly
           if (!selectedGen) {
@@ -62,8 +64,8 @@ function ProjectDetailContent() {
         }
 
         if (!selectedGen) {
-          const completed = generationsData.find((g: Generation) => g.status === "completed");
-          const latest = generationsData[0]; // Already sorted by generation_number desc
+          const completed = normalizedGenerations.find((g: Generation) => g.status === "completed");
+          const latest = normalizedGenerations[0]; // Already sorted by generation_number desc
           selectedGen = completed || latest || null;
         }
         setCurrentGeneration(selectedGen);
@@ -130,9 +132,11 @@ function ProjectDetailContent() {
                     fetchProjectGenerations(projectId)
                   ]);
                   setProject(projectData);
-                  setGenerations(generationsData);
-                  const completed = generationsData.find((g: Generation) => g.status === "completed");
-                  const latest = generationsData[0];
+                  // Defensive: Normalize to array in case API returns unexpected format
+                  const normalizedGenerations = Array.isArray(generationsData) ? generationsData : [];
+                  setGenerations(normalizedGenerations);
+                  const completed = normalizedGenerations.find((g: Generation) => g.status === "completed");
+                  const latest = normalizedGenerations[0];
                   setCurrentGeneration(completed || latest || null);
                 } catch (err) {
                   console.error("Error loading project:", err);

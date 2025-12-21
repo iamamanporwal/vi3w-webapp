@@ -47,7 +47,8 @@ export async function fetchProjects(workflowType?: WorkflowType): Promise<Projec
         throw new Error("Failed to fetch projects");
     }
     const data = await response.json();
-    return data.projects;
+    // Defensive: Always return an array, even if API response is malformed
+    return Array.isArray(data.projects) ? data.projects : [];
 }
 
 /**
@@ -95,7 +96,9 @@ export async function fetchProjectGenerations(projectId: string): Promise<Genera
         throw new Error("Failed to fetch project generations");
     }
     const data = await response.json();
-    return data.generations;
+    // Defensive: Always return an array, even if API response is malformed
+    // This prevents .find() crashes in client code
+    return Array.isArray(data.generations) ? data.generations : [];
 }
 
 /**
@@ -109,7 +112,8 @@ export async function fetchTransactions(): Promise<Transaction[]> {
         throw new Error("Failed to fetch transactions");
     }
     const data = await response.json();
-    return data.transactions;
+    // Defensive: Always return an array, even if API response is malformed
+    return Array.isArray(data.transactions) ? data.transactions : [];
 }
 
 /**
