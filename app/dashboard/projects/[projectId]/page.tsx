@@ -10,6 +10,7 @@ import { ArrowLeft, Download, RefreshCw, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { SkeletonText } from "@/components/SkeletonLoader";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
+import ModelViewer from "@/components/workflows/ModelViewer";
 
 function ProjectDetailContent() {
   const params = useParams();
@@ -157,15 +158,22 @@ function ProjectDetailContent() {
   }
 
   const modelUrl = currentGeneration?.output_data?.model_url ||
-    currentGeneration?.output_data?.model_path ||
+    currentGeneration?.output_data?.model_urls?.glb ||
     project.output_data?.model_url ||
-    project.output_data?.model_path;
+    project.output_data?.model_urls?.glb;
 
-  const thumbnail = currentGeneration?.output_data?.image_url ||
-    currentGeneration?.output_data?.isometric_path ||
+  const modelUrls = currentGeneration?.output_data?.model_urls ||
+    project.output_data?.model_urls ||
+    (modelUrl ? { glb: modelUrl } : undefined);
+
+  const thumbnail = currentGeneration?.output_data?.thumbnail_url ||
+    currentGeneration?.output_data?.image_url ||
+    project.output_data?.thumbnail_url ||
     project.output_data?.image_url ||
-    project.output_data?.isometric_path ||
     "/file.svg";
+
+  const modelName = project.title?.replace(/[^a-z0-9]/gi, '_').toLowerCase() ||
+    `${project.workflow_type.replace(/-/g, '_')}_${project.id.slice(0, 8)}`;
 
   return (
     <>
@@ -240,25 +248,14 @@ function ProjectDetailContent() {
                     </div>
                   </div>
                 ) : modelUrl ? (
-                  <div className="relative w-full h-96 bg-black/20 rounded-lg overflow-hidden">
-                    {React.createElement('model-viewer', {
-                      src: modelUrl,
-                      alt: "3D Model",
-                      'camera-controls': true,
-                      'auto-rotate': true,
-                      style: { width: "100%", height: "100%" }
-                    })}
-                    <div className="absolute bottom-4 right-4">
-                      <a
-                        href={modelUrl}
-                        download
-                        className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download
-                      </a>
-                    </div>
-                  </div>
+                  <ModelViewer
+                    src={modelUrl}
+                    poster={thumbnail}
+                    modelUrls={modelUrls}
+                    modelName={modelName}
+                    alt={project.title || "3D Model"}
+                    className="w-full h-96"
+                  />
                 ) : (
                   <div className="flex items-center justify-center h-96 text-white/60">
                     No 3D model available

@@ -31,12 +31,21 @@ export interface ProjectInputData {
 }
 
 export interface ProjectOutputData {
-  model_url?: string;
-  model_path?: string;
-  image_url?: string;
-  isometric_path?: string;
-  floorplan_path?: string;
-  preview_video_path?: string;
+  model_url?: string;              // Primary model URL (backward compatibility)
+  model_urls?: {                   // All model format URLs from Meshy
+    glb?: string;
+    fbx?: string;
+    obj?: string;
+    usdz?: string;
+    pre_remeshed_glb?: string;
+  };
+  thumbnail_url?: string;           // Meshy thumbnail URL
+  texture_urls?: Array<any>;        // Meshy texture URLs
+  image_url?: string;               // Generated/source image URL
+  model_path?: string;              // Legacy field
+  isometric_path?: string;          // Legacy field  
+  floorplan_path?: string;          // Legacy field
+  preview_video_path?: string;      // Legacy field
 }
 
 export interface ProjectDocument {
@@ -64,14 +73,23 @@ export interface GenerationInputData {
 }
 
 export interface GenerationOutputData {
-  model_url?: string;
-  model_path?: string;
-  image_url?: string;
-  isometric_path?: string;
-  floorplan_path?: string;
-  preview_video_path?: string;
-  meshy_task_id?: string;
-  replicate_prediction_id?: string;
+  model_url?: string;              // Primary model URL (backward compatibility)
+  model_urls?: {                   // All model format URLs from Meshy
+    glb?: string;
+    fbx?: string;
+    obj?: string;
+    usdz?: string;
+    pre_remeshed_glb?: string;
+  };
+  thumbnail_url?: string;           // Meshy thumbnail URL
+  texture_urls?: Array<any>;        // Meshy texture URLs
+  image_url?: string;               // Generated/source image URL
+  model_path?: string;              // Legacy field
+  isometric_path?: string;          // Legacy field
+  floorplan_path?: string;          // Legacy field
+  preview_video_path?: string;      // Legacy field
+  meshy_task_id?: string;           // Meshy task ID for tracking
+  replicate_prediction_id?: string; // Replicate prediction ID
 }
 
 export interface GenerationDocument {

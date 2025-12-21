@@ -136,8 +136,17 @@ export class TextTo3DWorkflow extends BaseWorkflow {
   /**
    * Convert image to 3D model using Meshy AI
    * With retry logic, timeout handling, and robust polling
+   * Returns all model URLs and metadata from Meshy API
    */
-  private async convertImageTo3D(imageSource: string, generationId: string): Promise<string> {
+  private async convertImageTo3D(imageSource: string, generationId: string): Promise<{
+    glb: string;
+    fbx?: string;
+    obj?: string;
+    usdz?: string;
+    pre_remeshed_glb?: string;
+    thumbnail_url?: string;
+    texture_urls?: any[];
+  }> {
     const meshyKey = this.getMeshyApiKey();
 
     const isDataUri = imageSource.startsWith('data:image/');
@@ -306,15 +315,29 @@ export class TextTo3DWorkflow extends BaseWorkflow {
         // According to Meshy API docs, status values are: PENDING, IN_PROGRESS, SUCCEEDED, FAILED, CANCELED
         if (status === 'SUCCEEDED') {
           const modelUrls = statusResponse.data?.model_urls;
-          const glbUrl = modelUrls?.glb;
+          const thumbnailUrl = statusResponse.data?.thumbnail_url;
+          const textureUrls = statusResponse.data?.texture_urls;
 
-          if (!glbUrl || typeof glbUrl !== 'string') {
+          // Validate that we have at least the GLB URL
+          if (!modelUrls?.glb || typeof modelUrls.glb !== 'string') {
             console.error('[TextTo3D] Model URLs in response:', JSON.stringify(modelUrls, null, 2));
             throw new Error('GLB URL not found in Meshy response. Check model_urls.glb in the response.');
           }
 
-          console.log('[TextTo3D] Generation succeeded! GLB URL:', glbUrl);
-          return glbUrl;
+          console.log('[TextTo3D] Generation succeeded!');
+          console.log('[TextTo3D] GLB URL:', modelUrls.glb);
+          console.log('[TextTo3D] Available formats:', Object.keys(modelUrls).join(', '));
+
+          // Return comprehensive model data
+          return {
+            glb: modelUrls.glb,
+            fbx: modelUrls.fbx,
+            obj: modelUrls.obj,
+            usdz: modelUrls.usdz,
+            pre_remeshed_glb: modelUrls.pre_remeshed_glb,
+            thumbnail_url: thumbnailUrl,
+            texture_urls: textureUrls,
+          };
         } else if (status === 'FAILED' || status === 'CANCELED') {
           // Handle task_error object structure from Meshy API
           const taskError = statusResponse.data?.task_error;
@@ -453,11 +476,23 @@ export class TextTo3DWorkflow extends BaseWorkflow {
 
       // Step 3: Convert image to 3D (Meshy)
       await this.updateGenerationStatus(generationId, 'generating', { progressPercentage: 75 });
-      const glbUrl = await this.convertImageTo3D(imageSource, generationId);
+      const meshyResult = await this.convertImageTo3D(imageSource, generationId);
 
+      // Build comprehensive output_data with all model formats
       const result: any = {
-        model_url: glbUrl,
+        model_url: meshyResult.glb,  // Primary URL for backward compatibility
+        model_urls: {
+          glb: meshyResult.glb,
+          fbx: meshyResult.fbx,
+          obj: meshyResult.obj,
+          usdz: meshyResult.usdz,
+          pre_remeshed_glb: meshyResult.pre_remeshed_glb,
+        },
+        thumbnail_url: meshyResult.thumbnail_url,
+        texture_urls: meshyResult.texture_urls,
       };
+
+      // Add generated image URL if available
       if (generatedImageUrl) {
         result.image_url = generatedImageUrl;
       }

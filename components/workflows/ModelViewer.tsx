@@ -1,15 +1,21 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-
-
+import { downloadModel } from "@/lib/client/downloadUtils";
 
 interface ModelViewerProps {
   src: string;
   alt?: string;
   poster?: string;
   className?: string;
-  onDownload?: () => void;
+  modelUrls?: {
+    glb?: string;
+    fbx?: string;
+    obj?: string;
+    usdz?: string;
+  };
+  modelName?: string;
+  onDownload?: (format: string) => void;
 }
 
 export default function ModelViewer({
@@ -17,12 +23,18 @@ export default function ModelViewer({
   alt = "3D Model",
   poster,
   className = "",
+  modelUrls,
+  modelName = "model",
   onDownload,
 }: ModelViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const viewerRef = useRef<any>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Load model-viewer script dynamically
@@ -52,6 +64,35 @@ export default function ModelViewer({
       };
     }
   }, [isLoaded]);
+
+  // Close download menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowDownloadMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleDownload = async (format: 'glb' | 'fbx' | 'obj' | 'usdz') => {
+    setDownloading(true);
+    setShowDownloadMenu(false);
+    try {
+      const urls = modelUrls || { glb: src };
+      await downloadModel(urls, format, modelName);
+      if (onDownload) {
+        onDownload(format);
+      }
+    } catch (error: any) {
+      setError(error.message || 'Download failed');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const availableFormats = modelUrls ? Object.keys(modelUrls).filter(k => modelUrls[k as keyof typeof modelUrls]) : ['glb'];
 
   const handleFullscreen = () => {
     if (!viewerRef.current) return;
@@ -101,7 +142,8 @@ export default function ModelViewer({
             <p className="text-white/60 text-xs mb-6 max-w-xs">{error}</p>
             <div className="flex gap-3">
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
                   setError(null);
                   setIsLoaded(false); // Trigger reload of script/viewer
                 }}
@@ -109,14 +151,15 @@ export default function ModelViewer({
               >
                 Retry
               </button>
-              {onDownload && (
-                <button
-                  onClick={onDownload}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded transition"
-                >
-                  Download Model
-                </button>
-              )}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (onDownload) onDownload('glb');
+                }}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded transition"
+              >
+                Download Model
+              </button>
             </div>
           </div>
         ) : !isLoaded ? (
@@ -152,8 +195,19 @@ export default function ModelViewer({
               }}
               onLoad={() => {
                 setError(null);
+                setIsModelLoaded(true);
               }}
             />
+
+            {/* Loading overlay */}
+            {!isModelLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+                  <p className="text-white/80 text-sm">Loading 3D model...</p>
+                </div>
+              </div>
+            )}
 
             {/* Controls Overlay */}
             <div className="absolute top-4 right-4 flex gap-2 z-10">
@@ -182,22 +236,42 @@ export default function ModelViewer({
                   </svg>
                 )}
               </button>
-              {onDownload && (
+              {/* Download button with dropdown */}
+              <div className="relative" ref={menuRef}>
                 <button
-                  onClick={onDownload}
-                  className="p-2 bg-black/50 hover:bg-black/70 text-white rounded transition backdrop-blur-sm"
+                  onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                  disabled={downloading}
+                  className="p-2 bg-black/50 hover:bg-black/70 text-white rounded transition backdrop-blur-sm disabled:opacity-50"
                   title="Download Model"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
-                  </svg>
+                  {downloading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                  )}
                 </button>
-              )}
+                {/* Download format menu */}
+                {showDownloadMenu && (
+                  <div className="absolute top-full right-0 mt-2 bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl min-w-[120px] overflow-hidden z-20">
+                    {availableFormats.map((format) => (
+                      <button
+                        key={format}
+                        onClick={() => handleDownload(format as any)}
+                        className="w-full px-4 py-2 text-left text-white hover:bg-white/10 transition text-sm uppercase"
+                      >
+                        {format}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
