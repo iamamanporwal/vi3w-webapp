@@ -11,7 +11,7 @@ import type { WorkflowType } from '@/types/firestore';
 const MESHY_API_BASE = 'https://api.meshy.ai/openapi/v1';
 const REPLICATE_TIMEOUT = 480000; // 8 minutes (increased from 5 for reliability)
 const MESHY_SUBMIT_TIMEOUT = 180000; // 3 minutes (increased from 2 for reliability)
-const MESHY_POLL_TIMEOUT = 900000; // 15 minutes total (increased from 7 for complex models)
+const MESHY_POLL_TIMEOUT = 1500000; // 25 minutes total (Meshy can take 10-20 minutes for complex models)
 const IMAGE_DOWNLOAD_TIMEOUT = 60000; // 1 minute
 
 /**
@@ -260,7 +260,7 @@ export class TextTo3DWorkflow extends BaseWorkflow {
 
     // Poll for status with timeout
     const startTime = Date.now();
-    const maxAttempts = 180; // 15 minutes max (900 seconds / 5 seconds per attempt)
+    const maxAttempts = 300; // 25 minutes max (1500 seconds / 5 seconds per attempt)
     const pollInterval = 5000; // 5 seconds
     let lastStatus: string | undefined;
 
@@ -348,10 +348,25 @@ export class TextTo3DWorkflow extends BaseWorkflow {
 
         // Status is still processing, continue polling silently
       } catch (error: any) {
-        // If it's a non-retryable error, throw immediately
+        // 404 during initial polling is NORMAL - Meshy task is still initializing
+        // Only treat 404 as fatal error after sustained period (e.g., 2+ minutes)
         if (error.response?.status === 404) {
-          throw new Error(`Meshy task ${taskId} not found`);
+          const elapsedTime = Date.now() - startTime;
+          const twoMinutes = 120000;
+
+          if (elapsedTime > twoMinutes) {
+            // After 2 minutes, 404 likely means task really doesn't exist
+            throw new Error(`Meshy task ${taskId} not found after ${Math.floor(elapsedTime / 1000)}s`);
+          } else {
+            // Within first 2 minutes, treat 404 as "still initializing"
+            if (attempt % 10 === 0) {
+              console.log(`[TextTo3D] Task still initializing (404 is normal during startup)...`);
+            }
+            continue; // Keep polling
+          }
         }
+
+        // Authentication errors are always fatal
         if (error.response?.status === 401 || error.response?.status === 403) {
           throw new Error('Meshy API authentication failed');
         }
