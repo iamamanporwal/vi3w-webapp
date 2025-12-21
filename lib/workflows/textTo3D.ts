@@ -189,9 +189,13 @@ export class TextTo3DWorkflow extends BaseWorkflow {
             `${MESHY_API_BASE}/image-to-3d`,
             {
               image_url: imageSource,
-              enable_pbr: true,
-              should_remesh: true,
-              should_texture: true,
+              // Cost-optimized settings: Reduces Meshy API cost from 30 credits to 5 credits
+              ai_model: 'meshy-4', // Use Meshy-4 instead of latest (Meshy-6)
+              enable_pbr: false, // Disable PBR maps to reduce cost
+              should_remesh: true, // Keep remeshing for cleaner geometry
+              should_texture: false, // Disable textures: 5 credits (vs 30 with textures)
+              target_polycount: 10000, // Lower poly count for faster generation (vs default 30k)
+              topology: 'triangle', // Triangle mesh (default, faster than quad)
             },
             {
               headers: {
