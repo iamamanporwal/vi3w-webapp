@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       60000 // 60 seconds TTL
     );
 
-    const response = NextResponse.json(projects);
+    const response = NextResponse.json({ projects });
 
     // Add cache headers for client-side caching
     response.headers.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=120');
