@@ -49,40 +49,45 @@ function ProjectDetailContent() {
         if (selectedGenerationId) {
           selectedGen = normalizedGenerations.find((g: Generation) => g.id === selectedGenerationId);
 
-          // If not found in the list (eventual consistency), retry fetching it directly
+          // If not found in the list (eventual consistency), poll for it directly
           // This handles the race condition where UI loads before Firestore replication completes
           if (!selectedGen) {
             setRetryingGeneration(true);
-            const retryDelays = [500, 1000, 2000, 3000]; // Progressive delays: 500ms, 1s, 2s, 3s
-            let lastError: Error | null = null;
+            console.log("Generation not found in list, starting polling:", selectedGenerationId);
+            
+            const pollInterval = 15000; // Poll every 15 seconds
+            const maxPollingTime = 600000; // Maximum 10 minutes
+            const startTime = Date.now();
 
-            for (let i = 0; i < retryDelays.length; i++) {
-              try {
-                if (i > 0) {
-                  console.log(`Retrying fetch (attempt ${i + 1}/${retryDelays.length}) after ${retryDelays[i - 1]}ms...`);
-                  await new Promise(resolve => setTimeout(resolve, retryDelays[i - 1]));
-                } else {
-                  console.log("Generation not found in list, fetching directly:", selectedGenerationId);
+            const poll = async () => {
+              while (Date.now() - startTime < maxPollingTime) {
+                try {
+                  console.log(`Polling for generation (elapsed: ${Math.round((Date.now() - startTime) / 1000)}s)...`);
+                  
+                  selectedGen = await fetchGeneration(selectedGenerationId);
+
+                  // If found, add to the list and stop polling
+                  if (selectedGen) {
+                    setGenerations(prev => [selectedGen!, ...prev]);
+                    console.log("Generation found after polling for", Math.round((Date.now() - startTime) / 1000), "seconds");
+                    setRetryingGeneration(false);
+                    return;
+                  }
+                } catch (genError) {
+                  console.warn("Error during polling:", genError);
+                  // Continue polling even on error
                 }
 
-                selectedGen = await fetchGeneration(selectedGenerationId);
-
-                // Add to the list if found
-                if (selectedGen) {
-                  setGenerations(prev => [selectedGen!, ...prev]);
-                  console.log("Generation found after", i + 1, "attempt(s)");
-                  setRetryingGeneration(false);
-                  break;
-                }
-              } catch (genError) {
-                lastError = genError instanceof Error ? genError : new Error(String(genError));
-                // Continue to next retry unless it's the last attempt
-                if (i === retryDelays.length - 1) {
-                  console.warn("Failed to fetch generation after all retries:", lastError);
-                }
+                // Wait before next poll
+                await new Promise(resolve => setTimeout(resolve, pollInterval));
               }
-            }
-            setRetryingGeneration(false);
+
+              // Timeout reached
+              console.warn("Polling timeout reached after", maxPollingTime / 1000, "seconds");
+              setRetryingGeneration(false);
+            };
+
+            poll();
           }
         }
 
