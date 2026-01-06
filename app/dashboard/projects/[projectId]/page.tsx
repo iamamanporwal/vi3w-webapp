@@ -2,15 +2,25 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useEffect, useState, Suspense } from "react";
+import React, { Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Script from "next/script";
-import { fetchProject, fetchProjectGenerations, fetchGeneration, Project, Generation } from "@/lib/client-api";
-import { ArrowLeft, Download, RefreshCw, Loader2 } from "lucide-react";
+import { ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { SkeletonText } from "@/components/SkeletonLoader";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
-import ModelViewer from "@/components/workflows/ModelViewer";
+import { useGenerationQuery, useProjectQuery, useProjectGenerationsQuery } from "@/lib/queries";
+import nextDynamic from "next/dynamic";
+
+const ModelViewer = nextDynamic(() => import("@/components/workflows/ModelViewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-96 flex flex-col items-center justify-center bg-white/5 rounded-lg">
+      <Loader2 className="w-8 h-8 animate-spin text-purple-500 mb-2" />
+      <span className="text-white/60">Loading 3D Viewer...</span>
+    </div>
+  ),
+});
 
 function ProjectDetailContent() {
   const params = useParams();
@@ -19,99 +29,50 @@ function ProjectDetailContent() {
   const projectId = params.projectId as string;
   const selectedGenerationId = searchParams.get("generationId");
 
-  const [project, setProject] = useState<Project | null>(null);
-  const [generations, setGenerations] = useState<Generation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentGeneration, setCurrentGeneration] = useState<Generation | null>(null);
-  const [retryingGeneration, setRetryingGeneration] = useState(false);
+  // Fetch project data
+  const {
+    data: project,
+    isLoading: isLoadingProject,
+    error: projectError,
+    refetch: refetchProject
+  } = useProjectQuery(projectId);
 
-  useEffect(() => {
-    const loadData = async () => {
-      if (!projectId) return;
+  // Fetch project generations
+  const {
+    data: generations = [],
+    isLoading: isLoadingGenerations,
+    error: generationsError,
+  } = useProjectGenerationsQuery(projectId);
 
-      try {
-        setLoading(true);
-        setError(null);
+  // Fetch specific generation if selectedGenerationId exists
+  const {
+    data: fetchedGeneration,
+    isLoading: isLoadingGeneration,
+    error: generationError
+  } = useGenerationQuery("CZbJtXoJpF0OTp8YrquI");
 
-        const [projectData, generationsData] = await Promise.all([
-          fetchProject(projectId),
-          fetchProjectGenerations(projectId)
-        ]);
+  // Determine current generation to display
+  const currentGeneration = React.useMemo(() => {
+    // 1. If we have a specific generation ID in the URL, try to find it
+    if (selectedGenerationId) {
+      const fromList = generations.find(g => g.id === selectedGenerationId);
+      if (fromList) return fromList;
+    }
 
-        setProject(projectData);
-        // Normalize generationsData to always be an array
-        const normalizedGenerations = Array.isArray(generationsData) ? generationsData : [];
-        setGenerations(normalizedGenerations);
+    // 2. If we have a fetched generation (either from URL or hardcoded/fetched by hook), use it
+    if (fetchedGeneration) return fetchedGeneration;
 
-        // Set current generation based on URL param, or default to latest completed/latest
-        let selectedGen = null;
-        if (selectedGenerationId) {
-          selectedGen = normalizedGenerations.find((g: Generation) => g.id === selectedGenerationId);
+    // 3. Fallback to completions or first from the generations list
+    const completed = generations.find(g => g.status === "completed");
+    return completed || generations[0] || null;
+  }, [selectedGenerationId, generations, fetchedGeneration]);
 
-          // If not found in the list (eventual consistency), poll for it directly
-          // This handles the race condition where UI loads before Firestore replication completes
-          if (!selectedGen) {
-            setRetryingGeneration(true);
-            console.log("Generation not found in list, starting polling:", selectedGenerationId);
-            
-            const pollInterval = 15000; // Poll every 15 seconds
-            const maxPollingTime = 600000; // Maximum 10 minutes
-            const startTime = Date.now();
-
-            const poll = async () => {
-              while (Date.now() - startTime < maxPollingTime) {
-                try {
-                  console.log(`Polling for generation (elapsed: ${Math.round((Date.now() - startTime) / 1000)}s)...`);
-                  
-                  selectedGen = await fetchGeneration(selectedGenerationId);
-
-                  // If found, add to the list and stop polling
-                  if (selectedGen) {
-                    setGenerations(prev => [selectedGen!, ...prev]);
-                    console.log("Generation found after polling for", Math.round((Date.now() - startTime) / 1000), "seconds");
-                    setRetryingGeneration(false);
-                    return;
-                  }
-                } catch (genError) {
-                  console.warn("Error during polling:", genError);
-                  // Continue polling even on error
-                }
-
-                // Wait before next poll
-                await new Promise(resolve => setTimeout(resolve, pollInterval));
-              }
-
-              // Timeout reached
-              console.warn("Polling timeout reached after", maxPollingTime / 1000, "seconds");
-              setRetryingGeneration(false);
-            };
-
-            poll();
-          }
-        }
-
-        if (!selectedGen) {
-          const completed = normalizedGenerations.find((g: Generation) => g.status === "completed");
-          const latest = normalizedGenerations[0]; // Already sorted by generation_number desc
-          selectedGen = completed || latest || null;
-        }
-        setCurrentGeneration(selectedGen);
-
-        // Update document title
-        if (projectData) {
-          document.title = `${projectData.title || projectData.input_data?.prompt || "Project"} | Vi3W`;
-        }
-      } catch (err) {
-        console.error("Error loading project:", err);
-        setError(err instanceof Error ? err.message : "Failed to load project");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [projectId, selectedGenerationId]);
+  // Update document title
+  React.useEffect(() => {
+    if (project) {
+      document.title = `${project.title || project.input_data?.prompt || "Project"} | Vi3W`;
+    }
+  }, [project]);
 
   const handleGenerateNewVersion = () => {
     if (!project) return;
@@ -124,7 +85,10 @@ function ProjectDetailContent() {
     }
   };
 
-  if (loading || retryingGeneration) {
+  const isLoading = isLoadingProject || isLoadingGenerations || isLoadingGeneration;
+  const error = projectError || generationsError || generationError;
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-black text-white p-8">
         <div className="max-w-7xl mx-auto">
@@ -132,7 +96,7 @@ function ProjectDetailContent() {
             <SkeletonText lines={2} className="mb-4" />
             <SkeletonText lines={1} className="w-1/3" />
           </div>
-          {retryingGeneration && (
+          {isLoadingGeneration && (
             <div className="mb-4 p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg text-purple-300">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -155,34 +119,8 @@ function ProjectDetailContent() {
       <div className="min-h-screen bg-black text-white p-8">
         <div className="max-w-7xl mx-auto">
           <ErrorDisplay
-            error={error || "Project not found"}
-            onRetry={() => {
-              setError(null);
-              const loadData = async () => {
-                if (!projectId) return;
-                try {
-                  setLoading(true);
-                  setError(null);
-                  const [projectData, generationsData] = await Promise.all([
-                    fetchProject(projectId),
-                    fetchProjectGenerations(projectId)
-                  ]);
-                  setProject(projectData);
-                  // Normalize generationsData to always be an array
-                  const normalizedGenerations = Array.isArray(generationsData) ? generationsData : [];
-                  setGenerations(normalizedGenerations);
-                  const completed = normalizedGenerations.find((g: Generation) => g.status === "completed");
-                  const latest = normalizedGenerations[0];
-                  setCurrentGeneration(completed || latest || null);
-                } catch (err) {
-                  console.error("Error loading project:", err);
-                  setError(err instanceof Error ? err.message : "Failed to load project");
-                } finally {
-                  setLoading(false);
-                }
-              };
-              loadData();
-            }}
+            error={error instanceof Error ? error.message : "Project not found"}
+            onRetry={() => refetchProject()}
             retryLabel="Reload project"
           />
           <Link
@@ -197,23 +135,26 @@ function ProjectDetailContent() {
     );
   }
 
+  console.log(currentGeneration);
+  console.log("gene",fetchedGeneration);
+
   const modelUrl = currentGeneration?.output_data?.model_url ||
     currentGeneration?.output_data?.model_urls?.glb ||
-    project.output_data?.model_url ||
-    project.output_data?.model_urls?.glb;
+    project?.output_data?.model_url ||
+    project?.output_data?.model_urls?.glb;
 
   const modelUrls = currentGeneration?.output_data?.model_urls ||
-    project.output_data?.model_urls ||
+    project?.output_data?.model_urls ||
     (modelUrl ? { glb: modelUrl } : undefined);
 
   const thumbnail = currentGeneration?.output_data?.thumbnail_url ||
     currentGeneration?.output_data?.image_url ||
-    project.output_data?.thumbnail_url ||
-    project.output_data?.image_url ||
+    project?.output_data?.thumbnail_url ||
+    project?.output_data?.image_url ||
     "/file.svg";
 
-  const modelName = project.title?.replace(/[^a-z0-9]/gi, '_').toLowerCase() ||
-    `${project.workflow_type.replace(/-/g, '_')}_${project.id.slice(0, 8)}`;
+  const modelName = project?.title?.replace(/[^a-z0-9]/gi, '_').toLowerCase() ||
+    `${project?.workflow_type.replace(/-/g, '_')}_${project?.id.slice(0, 8)}`;
 
   return (
     <>
@@ -236,25 +177,25 @@ function ProjectDetailContent() {
             <div className="flex items-start justify-between">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {project.title || project.input_data?.prompt || "Untitled Project"}
+                  {project?.title || project?.input_data?.prompt || "Untitled Project"}
                 </h1>
                 <div className="flex items-center gap-4 text-sm text-white/60">
-                  <span className="capitalize">{project.workflow_type.replace(/-/g, " ")}</span>
+                  <span className="capitalize">{project?.workflow_type.replace(/-/g, " ")}</span>
                   <span>•</span>
-                  <span>{project.generation_count || 0} generations</span>
+                  <span>{project?.generation_count || 0} generations</span>
                   <span>•</span>
                   <span>
-                    Created {project.created_at?.toDate?.().toLocaleDateString() || "Recently"}
+                    Created {project?.created_at?.toDate?.().toLocaleDateString() || "Recently"}
                   </span>
                 </div>
               </div>
 
               <button
                 onClick={handleGenerateNewVersion}
-                disabled={loading}
+                disabled={isLoading}
                 className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg flex items-center gap-2 transition"
               >
-                {loading ? (
+                {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Loading...
@@ -293,12 +234,12 @@ function ProjectDetailContent() {
                     poster={thumbnail}
                     modelUrls={modelUrls}
                     modelName={modelName}
-                    alt={project.title || "3D Model"}
+                    alt={project?.title || "3D Model"}
                     className="w-full h-96"
                   />
                 ) : (
                   <div className="flex items-center justify-center h-96 text-white/60">
-                    No 3D model available
+                    {/* No 3D model available */}
                   </div>
                 )}
 
@@ -309,7 +250,7 @@ function ProjectDetailContent() {
                       Generation #{currentGeneration.generation_number || "N/A"}
                     </div>
                     <div className="text-sm">
-                      <strong>Prompt:</strong> {currentGeneration.input_data?.prompt || project.input_data?.prompt || "N/A"}
+                      <strong>Prompt:</strong> {currentGeneration.input_data?.prompt || project?.input_data?.prompt || "N/A"}
                     </div>
                     {currentGeneration.status === "failed" && currentGeneration.error_message && (
                       <div className="mt-2 text-sm text-red-400">
@@ -343,4 +284,3 @@ export default function ProjectDetailPage() {
     </Suspense>
   );
 }
-

@@ -18,8 +18,9 @@ export async function downloadFile(url: string, filename?: string): Promise<void
             filename = filename.split('?')[0];
         }
 
-        // Fetch the file
-        const response = await fetch(url);
+        // Fetch the file through our proxy to avoid CORS issues
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
 
         if (!response.ok) {
             throw new Error(`Failed to download file: ${response.statusText}`);

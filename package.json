@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/model-viewer": "^4.1.0",
+    "@tanstack/react-query": "^5.90.16",
     "axios": "^1.13.2",
     "clsx": "^2.1.1",
     "firebase": "^11.1.0",

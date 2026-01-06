@@ -64,7 +64,7 @@ export async function fetchProject(projectId: string): Promise<Project> {
         throw new Error("Failed to fetch project");
     }
     const data = await response.json();
-    return data.project;
+    return data;
 }
 
 /**
@@ -81,7 +81,7 @@ export async function fetchGeneration(generationId: string): Promise<Generation>
         throw new Error("Failed to fetch generation");
     }
     const data = await response.json();
-    return data.generation;
+    return data;
 }
 
 /**

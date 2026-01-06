@@ -204,7 +204,7 @@ export default function ModelViewer({
             {/* @ts-ignore */}
             <model-viewer
               ref={viewerRef}
-              src={src}
+              src={`/api/proxy?url=${encodeURIComponent(src)}`}
               alt={alt}
               poster={poster}
               loading="lazy"
