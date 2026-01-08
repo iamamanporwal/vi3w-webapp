@@ -91,7 +91,7 @@ export default function ModelViewer({
         onDownload(format);
       }
     } catch (error: any) {
-      setError(error.message || 'Download failed');
+      setError('Download failed. Please try again.');
     } finally {
       setDownloading(false);
     }
@@ -141,7 +141,7 @@ export default function ModelViewer({
   function ErrorFallback({ error, resetErrorBoundary }: any) {
     useEffect(() => {
       console.error("3D Error:", error);
-      setError(error.message || "Failed to load 3D model");
+      setError("Failed to load 3D model");
     }, [error]);
     
     return null; // The error UI is handled by the main component state
@@ -179,13 +179,13 @@ export default function ModelViewer({
               <Suspense
                 fallback={null} // We handle loading state in Html overlay
               >
-                <ErrorBoundary onError={(err) => setError(err.message)}>
+                <ErrorBoundary onError={() => setError("Unable to render 3D model.")}>
                    <Center>
                      <Stage environment="city" intensity={0.6} adjustCamera={1.2}>
                        <Model 
                           url={proxyUrl} 
                           onLoad={() => setIsLoaded(true)} 
-                          onError={(err) => setError(err.message)} 
+                          onError={() => setError("Unable to load 3D model.")} 
                        />
                      </Stage>
                    </Center>
