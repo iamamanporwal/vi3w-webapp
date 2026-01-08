@@ -285,7 +285,7 @@ Ensure the entire structure is visible with a margin around it.`;
     generationId: string;
     result: any;
   }> {
-    const { prompt, imagePath, projectId, generationId: existingGenerationId } = input;
+    const { prompt, imagePath, projectId: inputProjectId, generationId: existingGenerationId } = input;
 
     // Validate input
     try {
@@ -308,6 +308,14 @@ Ensure the entire structure is visible with a margin around it.`;
       }
     }
 
+    // Ensure project exists
+    const projectId = await this.getOrCreateProject(
+      userId,
+      'floorplan-3d',
+      inputProjectId,
+      prompt ? `Floorplan: ${prompt.slice(0, 30)}...` : 'Floorplan to 3D'
+    );
+
     // Create generation event if not provided
     let generationId = existingGenerationId;
     if (!generationId) {
@@ -320,6 +328,13 @@ Ensure the entire structure is visible with a margin around it.`;
         },
         projectId
       );
+    }
+
+    // Fix: Assign generation number to link generation to project
+    try {
+      await this.assignGenerationNumber(projectId, generationId);
+    } catch (error) {
+      console.error('[FloorplanTo3D] Failed to assign generation number:', error);
     }
 
     // Update status to "generating"

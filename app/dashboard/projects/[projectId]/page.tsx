@@ -49,7 +49,7 @@ function ProjectDetailContent() {
     data: fetchedGeneration,
     isLoading: isLoadingGeneration,
     error: generationError
-  } = useGenerationQuery("CZbJtXoJpF0OTp8YrquI");
+  } = useGenerationQuery(project?.latest_generation_id || selectedGenerationId);
 
   // Determine current generation to display
   const currentGeneration = React.useMemo(() => {
@@ -135,9 +135,6 @@ function ProjectDetailContent() {
     );
   }
 
-  console.log(currentGeneration);
-  console.log("gene",fetchedGeneration);
-
   const modelUrl = currentGeneration?.output_data?.model_url ||
     currentGeneration?.output_data?.model_urls?.glb ||
     project?.output_data?.model_url ||
@@ -158,10 +155,6 @@ function ProjectDetailContent() {
 
   return (
     <>
-      <Script
-        src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.4.0/dist/model-viewer.min.js"
-        strategy="lazyOnload"
-      />
       <div className="min-h-screen bg-black text-white p-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
