@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { Suspense, useState, useRef, useEffect } from "react";
+import { Canvas } from "@react-three/fiber";
+import { Stage, OrbitControls, useGLTF, Html, Center } from "@react-three/drei";
 import { downloadModel } from "@/lib/client/downloadUtils";
+import { Loader2 } from "lucide-react";
 
 interface ModelViewerProps {
   src: string;
@@ -18,10 +21,28 @@ interface ModelViewerProps {
   onDownload?: (format: string) => void;
 }
 
+function Model({ url, onLoad, onError }: { url: string; onLoad: () => void; onError: (err: any) => void }) {
+  const { scene } = useGLTF(url, true, true, (loader) => {
+    // Optional: caching or manager here
+  });
+  
+  // Trigger onLoad when scene is ready
+  React.useEffect(() => {
+    onLoad();
+  }, [onLoad]);
+
+  // Basic error handling via ErrorBoundary in parent is preferred, 
+  // but useGLTF throws, so Suspense + ErrorBoundary catches it.
+  
+  return <primitive object={scene} />;
+}
+
+// Preload the GLTF
+useGLTF.preload = (url: string) => useGLTF.preload(url);
+
 export default function ModelViewer({
   src,
   alt = "3D Model",
-  poster,
   className = "",
   modelUrls,
   modelName = "model",
@@ -30,40 +51,19 @@ export default function ModelViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const viewerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Use proxy to avoid CORS issues with external model URLs (like Meshy)
+  const proxyUrl = src ? `/api/proxy?url=${encodeURIComponent(src)}` : "";
+
+  // Reset state when src changes
   useEffect(() => {
-    // Load model-viewer script dynamically
-    if (typeof window !== "undefined" && !isLoaded) {
-      // Check if script already exists
-      const existingScript = document.querySelector('script[src*="model-viewer"]');
-      if (existingScript) {
-        setIsLoaded(true);
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.type = "module";
-      script.src = "https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js";
-      script.onload = () => setIsLoaded(true);
-      script.onerror = () => {
-        setError("Failed to load 3D viewer library");
-        setIsLoaded(false);
-      };
-      document.head.appendChild(script);
-
-      return () => {
-        // Only remove if we added it
-        if (script.parentNode) {
-          script.parentNode.removeChild(script);
-        }
-      };
-    }
-  }, [isLoaded]);
+    setError(null);
+    setIsLoaded(false);
+  }, [src]);
 
   // Close download menu when clicking outside
   useEffect(() => {
@@ -80,13 +80,18 @@ export default function ModelViewer({
     setDownloading(true);
     setShowDownloadMenu(false);
     try {
+      // For download, we might want the direct URL if it works, or proxy if not.
+      // Usually browser downloads are less strict about CORS than XHR/Fetch in WebGL,
+      // but to be safe/consistent we can use proxy or try direct.
+      // Let's stick to the urls passed in modelUrls (usually direct) for now, 
+      // as downloadUtils likely creates an anchor tag which doesn't need CORS.
       const urls = modelUrls || { glb: src };
       await downloadModel(urls, format, modelName);
       if (onDownload) {
         onDownload(format);
       }
     } catch (error: any) {
-      setError(error.message || 'Download failed');
+      setError('Download failed. Please try again.');
     } finally {
       setDownloading(false);
     }
@@ -95,15 +100,15 @@ export default function ModelViewer({
   const availableFormats = modelUrls ? Object.keys(modelUrls).filter(k => modelUrls[k as keyof typeof modelUrls]) : ['glb'];
 
   const handleFullscreen = () => {
-    if (!viewerRef.current) return;
+    if (!containerRef.current) return;
 
     if (!isFullscreen) {
-      if (viewerRef.current.requestFullscreen) {
-        viewerRef.current.requestFullscreen();
-      } else if ((viewerRef.current as any).webkitRequestFullscreen) {
-        (viewerRef.current as any).webkitRequestFullscreen();
-      } else if ((viewerRef.current as any).msRequestFullscreen) {
-        (viewerRef.current as any).msRequestFullscreen();
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen();
+      } else if ((containerRef.current as any).webkitRequestFullscreen) {
+        (containerRef.current as any).webkitRequestFullscreen();
+      } else if ((containerRef.current as any).msRequestFullscreen) {
+        (containerRef.current as any).msRequestFullscreen();
       }
     } else {
       if (document.exitFullscreen) {
@@ -132,8 +137,18 @@ export default function ModelViewer({
     };
   }, []);
 
+  // Safe fallback component for the 3D canvas
+  function ErrorFallback({ error, resetErrorBoundary }: any) {
+    useEffect(() => {
+      console.error("3D Error:", error);
+      setError("Failed to load 3D model");
+    }, [error]);
+    
+    return null; // The error UI is handled by the main component state
+  }
+
   return (
-    <div className={`relative ${className}`}>
+    <div ref={containerRef} className={`relative ${className}`}>
       <div className="relative w-full h-full bg-black rounded-lg overflow-hidden border border-white/10">
         {error ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[400px] p-8 text-center">
@@ -145,98 +160,46 @@ export default function ModelViewer({
                 onClick={(e) => {
                   e.preventDefault();
                   setError(null);
-                  setIsLoaded(false); // Trigger reload of script/viewer
+                  setIsLoaded(false); // Trigger reload
                 }}
                 className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded transition border border-white/10"
               >
                 Retry
               </button>
-              {/* Download dropdown in error state */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowDownloadMenu(!showDownloadMenu);
-                  }}
-                  disabled={downloading}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded transition flex items-center gap-2"
-                >
-                  {downloading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Downloading...
-                    </>
-                  ) : (
-                    <>
-                      Download Model
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </>
-                  )}
-                </button>
-                {showDownloadMenu && !downloading && (
-                  <div className="absolute top-full left-0 mt-2 bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl min-w-[140px] overflow-hidden z-20">
-                    {availableFormats.map((format) => (
-                      <button
-                        key={format}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleDownload(format as any);
-                        }}
-                        className="w-full px-4 py-2 text-left text-white hover:bg-white/10 transition text-sm uppercase"
-                      >
-                        {format}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
-          </div>
-        ) : !isLoaded ? (
-          <div className="flex flex-col items-center justify-center h-full min-h-[400px] p-8">
-            <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4" />
-            <p className="text-white/60 text-sm">Loading 3D viewer...</p>
           </div>
         ) : (
           <>
-            {/* @ts-ignore */}
-            <model-viewer
-              ref={viewerRef}
-              src={src}
-              alt={alt}
-              poster={poster}
-              loading="lazy"
-              auto-rotate="true"
-              camera-controls="true"
-              shadow-intensity="1"
-              interaction-prompt="none"
-              style={{
-                width: "100%",
-                height: "100%",
-                minHeight: "400px",
-                backgroundColor: "#000",
-              }}
-              onError={(e: any) => {
-                console.error("Model viewer error:", e);
-                const errorMessage = e?.detail?.message ||
-                  e?.message ||
-                  "Failed to load 3D model. The file may be corrupted or unsupported.";
-                setError(errorMessage);
-              }}
-              onLoad={() => {
-                setError(null);
-                setIsModelLoaded(true);
-              }}
-            />
+            <Canvas
+               shadows
+               camera={{ position: [4, 4, 4], fov: 50 }}
+               style={{ background: '#000', width: '100%', height: '100%', minHeight: '400px' }}
+               dpr={[1, 2]} // Quality scaling
+            >
+              <Suspense
+                fallback={null} // We handle loading state in Html overlay
+              >
+                <ErrorBoundary onError={() => setError("Unable to render 3D model.")}>
+                   <Center>
+                     <Stage environment="city" intensity={0.6} adjustCamera={1.2}>
+                       <Model 
+                          url={proxyUrl} 
+                          onLoad={() => setIsLoaded(true)} 
+                          onError={() => setError("Unable to load 3D model.")} 
+                       />
+                     </Stage>
+                   </Center>
+                </ErrorBoundary>
+                <OrbitControls makeDefault autoRotate autoRotateSpeed={2} />
+              </Suspense>
+            </Canvas>
 
-            {/* Loading overlay */}
-            {!isModelLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            {/* Loading Overlay */}
+            {!isLoaded && !error && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm pointer-events-none">
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-                  <p className="text-white/80 text-sm">Loading 3D model...</p>
+                  <p className="text-white/80 text-sm">Loading 3D Model...</p>
                 </div>
               </div>
             )}
@@ -268,7 +231,7 @@ export default function ModelViewer({
                   </svg>
                 )}
               </button>
-              {/* Download button with dropdown */}
+              {/* Download button */}
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setShowDownloadMenu(!showDownloadMenu)}
@@ -289,7 +252,6 @@ export default function ModelViewer({
                     </svg>
                   )}
                 </button>
-                {/* Download format menu */}
                 {showDownloadMenu && (
                   <div className="absolute top-full right-0 mt-2 bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl min-w-[120px] overflow-hidden z-20">
                     {availableFormats.map((format) => (
@@ -312,3 +274,25 @@ export default function ModelViewer({
   );
 }
 
+// Simple Error Boundary for Canvas
+class ErrorBoundary extends React.Component<{ children: React.ReactNode; onError: (error: any) => void }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any) {
+    this.props.onError(error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return null;
+    }
+    return this.props.children;
+  }
+}

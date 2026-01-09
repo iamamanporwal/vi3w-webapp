@@ -483,6 +483,15 @@ export class TextTo3DWorkflow extends BaseWorkflow {
       );
     }
 
+    // CRITICAL FIX: Assign generation number to link generation to project
+    // This updates the project's latest_generation_id and increments generation_count
+    try {
+      await this.assignGenerationNumber(projectId, generationId);
+    } catch (error) {
+      console.error('[TextTo3D] Failed to assign generation number:', error);
+      // Continue anyway, as the generation itself is created
+    }
+
     // Store generationId for progress updates
     // this.currentGenerationId = generationId; // REMOVED: Avoid state pollution
 

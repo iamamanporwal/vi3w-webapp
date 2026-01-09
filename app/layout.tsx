@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LowCreditBannerWrapper } from "@/components/LowCreditBannerWrapper";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,38 +47,40 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white min-h-screen`}
       >
         <ErrorBoundary>
-          <AuthProvider>
-            <ErrorBoundary>
-              <Navbar />
-            </ErrorBoundary>
-            <ErrorBoundary>
-              {children}
-            </ErrorBoundary>
-            <LowCreditBannerWrapper />
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: "#1a1a1a",
-                  color: "#fff",
-                  border: "1px solid #333",
-                },
-                success: {
-                  iconTheme: {
-                    primary: "#10b981",
-                    secondary: "#fff",
+          <QueryProvider>
+            <AuthProvider>
+              <ErrorBoundary>
+                <Navbar />
+              </ErrorBoundary>
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+              <LowCreditBannerWrapper />
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: "#1a1a1a",
+                    color: "#fff",
+                    border: "1px solid #333",
                   },
-                },
-                error: {
-                  iconTheme: {
-                    primary: "#ef4444",
-                    secondary: "#fff",
+                  success: {
+                    iconTheme: {
+                      primary: "#10b981",
+                      secondary: "#fff",
+                    },
                   },
-                },
-              }}
-            />
-          </AuthProvider>
+                  error: {
+                    iconTheme: {
+                      primary: "#ef4444",
+                      secondary: "#fff",
+                    },
+                  },
+                }}
+              />
+            </AuthProvider>
+          </QueryProvider>
         </ErrorBoundary>
       </body>
     </html>
